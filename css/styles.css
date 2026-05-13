@@ -326,6 +326,42 @@ html, body {
   box-shadow: 0 0 0 #003399, 0 0 0 4px rgba(0,0,0,0.4);
 }
 
+/* Opciones del chiste final */
+.choice {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  display: none;
+  justify-content: center;
+  gap: 14px;
+  z-index: 8;
+  padding: 0 16px;
+}
+.choice.is-active { display: flex; }
+.choice__btn {
+  pointer-events: auto;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 12px 18px;
+  background: #ffd200;
+  color: #003399;
+  border: 3px solid #003399;
+  border-radius: 6px;
+  box-shadow: 0 4px 0 #003399, 0 4px 0 4px rgba(0,0,0,0.4);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  animation: btnPulse 1.4s ease-in-out infinite;
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+.choice__btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 #003399, 0 0 0 4px rgba(0,0,0,0.4);
+  animation: none;
+}
+
 /* Overlay si el dispositivo está en vertical durante el nivel */
 .rotate-overlay {
   position: absolute;

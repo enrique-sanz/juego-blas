@@ -10,16 +10,43 @@
   // -------------------- Configuración --------------------
   const VW = 480;          // ancho lógico
   const VH = 270;          // alto lógico
-  const RENDER_SCALE = 3;  // multiplicador interno del canvas (más nitidez)
-  const SPRITE_SCALE = 4;  // los sprites se prerrenderizan a esta resolución para que no pixelen
+  const RENDER_SCALE = 4;  // multiplicador interno del canvas (más nitidez)
+  const SPRITE_SCALE = 5;  // los sprites se prerrenderizan a esta resolución para que no pixelen
   const GROUND_Y = 220;    // y del suelo
   const GRAVITY = 1500;    // px/s^2
   const JUMP_VY = -560;    // velocidad inicial salto
   const STOMP_VY = -380;   // rebote tras pisar buzón
-  const PLAYER_SPEED = 90; // px/s (mundo se desplaza a esta velocidad)
-  const PLAYER_X = 120;    // posición fija de Blas en pantalla
-  const DURATION = 60;     // segundos del nivel
-  const FINAL_TIME = 52;   // a partir de aquí aparece la zona del árbol
+  const PLAYER_SPEED = 90;   // px/s (avance normal del mundo)
+  const PLAYER_X = 120;      // posición fija inicial de Blas en pantalla
+  const DURATION = 60;       // segundos del nivel
+  const FINAL_TIME = 52;     // a partir de aquí aparece la zona del árbol
+
+  // Barra de fuerza para el super-salto: indicador oscila muy rápido.
+  const METER_SPEED = 2.6;        // recorridos 0→1 por segundo (rebota rápido)
+  const FORCE_MIN_VY = 220;       // vy con fuerza 0 (salto miserable)
+  const FORCE_MAX_VY = 1080;      // vy con fuerza 1 (llega a la copa holgado)
+  const CARRERILLA_SPEED = 220;   // px/s mientras coge carrerilla
+
+  // Fuente para textos pequeños (bocadillos): sans-serif es más legible
+  // que Press Start 2P a tamaños pequeños. Reservamos Press Start 2P
+  // para HUD y popups grandes.
+  const BUBBLE_FONT = 'bold 9px "Segoe UI", "Helvetica Neue", Arial, sans-serif';
+  const POPUP_FONT  = '8px "Press Start 2P", monospace';
+
+  // Frases variadas que dicen los vecinos enfadados
+  const NEIGHBOR_PHRASES = [
+    '¿Y mi paquete?',
+    '¡Venga fanfarrón!',
+    '¡Ya era hora!',
+    '¡Llevo 2 semanas!',
+    '¡Trabaja, gandul!',
+    '¿Hay algo pa mí?',
+    'Ayer te estuve esperando',
+    'A mí facturas no me traigas',
+  ];
+
+  // Frase que dice Blas cuando elimina a un vecino
+  const BLAS_KILL_PHRASE = '¡Pa paquete el mío!';
 
   const COLORS = {
     sky:       '#5cc8ff',
@@ -33,14 +60,24 @@
     house1:    '#e8a96b',
     house2:    '#c47b50',
     house3:    '#d6c19c',
+    house4:    '#b2cfa0',
+    house5:    '#dca1a1',
     houseDark: '#3a2418',
     roof:      '#7a3b1e',
+    roofDark:  '#5a2b14',
     window:    '#9ed6ff',
+    windowSheen:'#cfe9ff',
     windowFrame:'#3a2418',
     door:      '#5a3416',
+    doorDark:  '#3a2110',
     skin:      '#f0c89a',
     skinDark:  '#c8916a',
+    hair:      '#3a2418',
+    hairAlt:   '#7a5230',
+    hairGrey:  '#a8a8a8',
     shirt:     '#3a6dd1',
+    shirtAlt:  '#c44a4a',
+    shirtAlt2: '#7a3aa8',
     pants:     '#2b2b2b',
     leaves:    '#2f9d4a',
     leavesDark:'#1f7034',
@@ -49,9 +86,12 @@
     casablanca:'#f0d9b0',
     casablancaSign:'#aa1f1f',
     yellow:    '#ffd200',
+    yellowDark:'#c79c00',
     blue:      '#003399',
     envelope:  '#fffaf0',
     envelopeShadow: '#cfc6a8',
+    balcony:   '#5a3416',
+    rail:      '#2a2a2a',
   };
 
   // -------------------- Estado --------------------
@@ -64,8 +104,26 @@
   let timeLeft = DURATION;
   let score = 0;
   let lives = 3;
-  let phase = 'run';     // 'run' | 'final' | 'win' | 'over'
-  let invuln = 0;        // segundos restantes de invulnerabilidad
+  // Fases del nivel:
+  //   'run'         → avance normal repartiendo
+  //   'final'       → cámara detenida frente al árbol, advertencia + barra
+  //   'carrerilla'  → Blas avanza en pantalla cogiendo carrerilla
+  //   'jump'        → Blas en el aire
+  //   'win_dialog'  → Blas en la copa contando el chiste
+  //   'fall_down'   → Blas tumbado bocarriba ("te caíste")
+  //   'win' | 'over'→ resultado final
+  let phase = 'run';
+  let invuln = 0;
+  let stopCameraX = 0;       // x al que se detiene la cámara
+  let warningAlpha = 0;      // opacidad del aviso "¡SALTA…!"
+  let meterPos = 0;          // 0..1 posición del indicador de fuerza
+  let meterDir = 1;          // dirección de oscilación
+  let selectedForce = 0;     // fuerza fijada al pulsar SALTO
+  let runUpTargetX = 0;      // x en pantalla a la que Blas para de correr
+  let reachedTree = false;   // tocó la copa en este intento
+  let winDialogTimer = 0;
+  let winDialogStage = 0;    // 0 = pregunta, 1 = remate
+  let fallDownTimer = 0;
 
   const player = {
     x: PLAYER_X,         // x en pantalla (también es x absoluta porque cámara se desplaza por la escena, no por el jugador)
@@ -75,12 +133,13 @@
     h: 40,
     onGround: true,
     facing: 1,
+    speech: { text: '', t: 0 }, // bocadillo de Blas al matar
   };
 
   let buzones = [];      // { worldX, y, w, h, vx, alive }
-  let neighbors = [];    // { worldX, y, w, h, alive, anchorHouseIdx, sayTimer }
+  let neighbors = [];    // { worldX, y, w, h, alive, sayTimer, spawnType, halfBody, phrase, palette }
   let envelopes = [];    // { worldX, y, vx, w, h, alive }
-  let houses = [];       // { worldX, w, h, type }
+  let houses = [];       // { worldX, w, h, type, hasBalcony }
   let popups = [];       // { worldX, y, text, t }
   let finalTree = null;  // { worldX, baseY, trunkW, trunkH, canopyR, platformY, platformW }
   let casablanca = null; // { worldX, w, h }
@@ -103,36 +162,22 @@
   }
 
   function buildFaceSprite(img) {
-    // Pre-renderizamos a alta resolución para que se vea nítido cuando
-    // se dibuje a tamaño lógico (~22px) en pantalla.
-    const size = 22 * SPRITE_SCALE;
+    // img = assets/blas-face.png. El PNG ya está recortado al contorno
+    // de la cabeza (gorra + cara + barba) sobre fondo transparente, así
+    // que usamos la imagen entera y solo la pre-renderizamos a alta
+    // resolución para que no pixele al escalarla en juego.
+    const srcW = img.width;
+    const srcH = img.height;
+    const TARGET_W = 32 * SPRITE_SCALE;
+    const TARGET_H = Math.round(TARGET_W * srcH / srcW);
     const c = document.createElement('canvas');
-    c.width = size; c.height = size;
+    c.width = TARGET_W;
+    c.height = TARGET_H;
     const cx = c.getContext('2d');
-
     cx.imageSmoothingEnabled = true;
     cx.imageSmoothingQuality = 'high';
-    cx.save();
-    cx.beginPath();
-    cx.arc(size/2, size/2, size/2 - 2, 0, Math.PI*2);
-    cx.closePath();
-    cx.clip();
-
-    // Origen aproximado de la cara en la imagen (gorra+cara incluida)
-    const sx = 250;
-    const sy = 130;
-    const sw = 600;
-    const sh = 600;
-    cx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
-    cx.restore();
-
-    // Borde
-    cx.lineWidth = SPRITE_SCALE * 0.6;
-    cx.strokeStyle = '#000';
-    cx.beginPath();
-    cx.arc(size/2, size/2, size/2 - 2, 0, Math.PI*2);
-    cx.stroke();
-
+    cx.drawImage(img, 0, 0, srcW, srcH, 0, 0, TARGET_W, TARGET_H);
+    c._ratio = srcH / srcW; // alto / ancho
     return c;
   }
 
@@ -171,43 +216,126 @@
   }
 
   // -------------------- Mundo: generación --------------------
+  function houseGeometry(house) {
+    // Coordenadas en mundo (no en pantalla) de los huecos por los que
+    // pueden salir los vecinos.
+    const topY = GROUND_Y - house.h;
+    // Geometría de ventanas (debe coincidir con drawHouses)
+    const wW = 22, wH = 20;
+    const winY = topY + 18;
+    const winLX = house.worldX + 14 + wW / 2;
+    const winRX = house.worldX + house.w - 14 - wW / 2;
+    // Balcón (mitad de la casa)
+    const balconyY = topY + Math.floor(house.h * 0.5);
+    const balconyLX = house.worldX + 26;
+    const balconyRX = house.worldX + house.w - 26;
+    // Puerta
+    const doorX = house.worldX + house.w / 2;
+    return { topY, winY, winLX, winRX, balconyY, balconyLX, balconyRX, doorX };
+  }
+
+  function makeNeighbor(house, spawnType) {
+    const g = houseGeometry(house);
+    const palettes = [
+      { shirt: COLORS.shirt,     hair: COLORS.hair },
+      { shirt: COLORS.shirtAlt,  hair: COLORS.hairAlt },
+      { shirt: COLORS.shirtAlt2, hair: COLORS.hairGrey },
+      { shirt: '#2f8a3a',        hair: COLORS.hair },
+      { shirt: '#d68a2a',        hair: COLORS.hairAlt },
+    ];
+    const palette = palettes[Math.floor(Math.random() * palettes.length)];
+    const phrase = NEIGHBOR_PHRASES[Math.floor(Math.random() * NEIGHBOR_PHRASES.length)];
+
+    let worldX, y, w, h, halfBody;
+    if (spawnType === 'door') {
+      worldX = g.doorX;
+      y = GROUND_Y - 38;
+      w = 20; h = 38;
+      halfBody = false;
+    } else if (spawnType === 'windowL' || spawnType === 'windowR') {
+      worldX = spawnType === 'windowL' ? g.winLX : g.winRX;
+      // El vecino asoma medio cuerpo: su "y" es la coronilla.
+      // El alféizar queda justo bajo los hombros.
+      y = g.winY - 4;
+      w = 20; h = 22;
+      halfBody = true;
+    } else { // balconyL / balconyR
+      worldX = spawnType === 'balconyL' ? g.balconyLX : g.balconyRX;
+      // El vecino aparece de pie sobre el balcón. La barandilla
+      // tapa sus piernas, así que dibujamos medio cuerpo.
+      y = g.balconyY - 28;
+      w = 20; h = 28;
+      halfBody = true;
+    }
+    return {
+      worldX, y, w, h,
+      alive: true,
+      sayTimer: Math.random() * 2.5,
+      spawnType,
+      halfBody,
+      phrase,
+      palette,
+    };
+  }
+
   function seedWorld() {
     houses = [];
     neighbors = [];
     buzones = [];
     envelopes = [];
     popups = [];
+    player.speech = { text: '', t: 0 };
 
     // Generar casas a lo largo del mundo
     let x = 200;
     const worldEnd = PLAYER_SPEED * FINAL_TIME + 600;
     const houseTypes = [
-      { color: COLORS.house1, roof: COLORS.roof, w: 110, h: 110 },
-      { color: COLORS.house2, roof: COLORS.roof, w: 130, h: 130 },
-      { color: COLORS.house3, roof: '#5a3416', w: 100, h: 100 },
+      { color: COLORS.house1, roof: COLORS.roof,     w: 120, h: 120 },
+      { color: COLORS.house2, roof: COLORS.roofDark, w: 140, h: 140 },
+      { color: COLORS.house3, roof: COLORS.roof,     w: 110, h: 110 },
+      { color: COLORS.house4, roof: COLORS.roofDark, w: 130, h: 130 },
+      { color: COLORS.house5, roof: COLORS.roof,     w: 120, h: 130 },
     ];
     let idx = 0;
     while (x < worldEnd) {
       const t = houseTypes[idx % houseTypes.length];
-      houses.push({
+      const hasBalcony = idx % 3 === 1; // 1 de cada 3 casas tiene balcón
+      const house = {
         worldX: x,
         w: t.w,
         h: t.h,
         color: t.color,
         roof: t.roof,
         idx: idx,
-      });
-      // Vecino delante de la casa (no siempre)
-      if (idx % 2 === 0) {
-        neighbors.push({
-          worldX: x + t.w / 2,
-          y: GROUND_Y - 36,
-          w: 18, h: 36,
-          alive: true,
-          sayTimer: 0,
-        });
+        hasBalcony,
+      };
+      houses.push(house);
+
+      // Cada casa genera entre 1 y 2 vecinos en huecos distintos.
+      // Los primeros (idx pequeño) van más en puerta para que el
+      // jugador entienda la mecánica antes; luego se mezclan.
+      const opts = ['door', 'windowL', 'windowR'];
+      if (hasBalcony) opts.push('balconyL', 'balconyR');
+
+      const pickedTypes = [];
+      // Primer vecino casi siempre
+      if (idx === 0 || Math.random() < 0.85) {
+        const forceDoor = idx < 2; // primeras casas: vecino en puerta
+        const pick = forceDoor ? 'door' : opts[Math.floor(Math.random() * opts.length)];
+        pickedTypes.push(pick);
       }
-      x += t.w + 60 + Math.floor(Math.random() * 40);
+      // Segundo vecino con menos probabilidad y en otro hueco
+      if (idx >= 2 && Math.random() < 0.45) {
+        const remaining = opts.filter((o) => !pickedTypes.includes(o));
+        if (remaining.length) {
+          pickedTypes.push(remaining[Math.floor(Math.random() * remaining.length)]);
+        }
+      }
+      pickedTypes.forEach((type) => {
+        neighbors.push(makeNeighbor(house, type));
+      });
+
+      x += t.w + 70 + Math.floor(Math.random() * 50);
       idx++;
     }
 
@@ -224,22 +352,28 @@
       alive: true,
     }));
 
-    // Zona final: árbol gigante junto al bar Casablanca
-    const finalX = PLAYER_SPEED * FINAL_TIME + 380;
+    // Zona final: primero aparece la fachada del bar Casablanca al fondo,
+    // y unos metros después el ciprés alargado al que Blas debe saltar.
+    const finalX = PLAYER_SPEED * FINAL_TIME + 460;
     finalTree = {
       worldX: finalX,
       baseY: GROUND_Y,
-      trunkW: 24,
-      trunkH: 110,
-      canopyR: 46,
-      platformY: GROUND_Y - 110, // copa del árbol
-      platformW: 60,
+      trunkW: 16,           // tronco fino
+      trunkH: 130,          // tronco oculto bajo la copa alargada
+      canopyTop: GROUND_Y - 175,
+      canopyBot: GROUND_Y - 28,
+      canopyW: 38,
+      platformY: GROUND_Y - 170, // copa del ciprés (objetivo del salto)
+      platformW: 34,
     };
     casablanca = {
-      worldX: finalX + 90,
-      y: GROUND_Y - 130,
-      w: 160, h: 130,
+      worldX: finalX - 320,  // ANTES del ciprés en el recorrido
+      y: GROUND_Y - 150,
+      w: 200, h: 150,
     };
+    // La cámara se detiene dejando al árbol visible a la derecha y a Blas
+    // con espacio suficiente para coger carrerilla antes del salto.
+    stopCameraX = finalTree.worldX - PLAYER_X - 130;
   }
 
   // -------------------- Controles --------------------
@@ -253,6 +387,8 @@
       if (val) {
         if (key === 'jump') doJump();
         if (key === 'shoot') doShoot();
+      } else {
+        if (key === 'jump') releaseJump();
       }
     };
 
@@ -268,18 +404,63 @@
 
     // teclado (para depuración en desktop)
     window.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
       if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') doJump();
       if (e.key === 'x' || e.key === 'Control' || e.key === 'z') doShoot();
     });
+    window.addEventListener('keyup', (e) => {
+      if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') releaseJump();
+    });
+
+    // Botones de opción del chiste final
+    const choice = document.getElementById('choice');
+    if (choice) {
+      choice.addEventListener('click', (e) => {
+        const btn = e.target.closest('.choice__btn');
+        if (!btn) return;
+        e.preventDefault();
+        chooseAnswer(btn.dataset.choice);
+      });
+    }
+  }
+
+  function showChoiceButtons() {
+    const el = document.getElementById('choice');
+    if (el) el.classList.add('is-active');
+  }
+  function hideChoiceButtons() {
+    const el = document.getElementById('choice');
+    if (el) el.classList.remove('is-active');
+  }
+
+  function chooseAnswer(which) {
+    if (phase !== 'win_dialog' || winDialogStage !== 0) return;
+    winDialogStage = 1;
+    winDialogTimer = 0;
+    const reply = which === 'pio' ? 'No, mucha sombra' : '¡No, PIO PIO!';
+    player.speech = { text: reply, t: 99 };
+    hideChoiceButtons();
   }
 
   function doJump() {
-    if (!running || phase === 'win' || phase === 'over') return;
-    if (player.onGround) {
+    if (!running) return;
+    if (phase === 'final') {
+      // Fija la fuerza con la posición actual del indicador y arranca la carrerilla
+      selectedForce = meterPos;
+      // Objetivo de carrerilla: justo al lado izquierdo del tronco
+      const treeScreenX = finalTree.worldX - cameraX;
+      runUpTargetX = treeScreenX - finalTree.trunkW / 2 - player.w - 2;
+      reachedTree = false;
+      phase = 'carrerilla';
+      return;
+    }
+    if (phase === 'run' && player.onGround) {
       player.vy = JUMP_VY;
       player.onGround = false;
     }
   }
+
+  function releaseJump() { /* la barra oscilante no necesita release */ }
 
   function doShoot() {
     if (!running || phase === 'win' || phase === 'over') return;
@@ -304,6 +485,15 @@
     lives = 3;
     phase = 'run';
     invuln = 0;
+    warningAlpha = 0;
+    meterPos = 0;
+    meterDir = 1;
+    selectedForce = 0;
+    runUpTargetX = 0;
+    reachedTree = false;
+    winDialogTimer = 0;
+    winDialogStage = 0;
+    fallDownTimer = 0;
     player.x = PLAYER_X;
     player.y = GROUND_Y - player.h;
     player.vy = 0;
@@ -312,64 +502,117 @@
     lastShoot = 0;
     seedWorld();
     updateHUD();
+    hideChoiceButtons();
   }
 
   function update(dt) {
     if (phase === 'win' || phase === 'over') return;
 
-    // Avance del mundo (mientras no estamos en la zona final)
+    // -------- Fases de avance --------
     if (phase === 'run') {
       cameraX += PLAYER_SPEED * dt;
       timeLeft -= dt;
       if (timeLeft <= 0) timeLeft = 0;
-      if (timeLeft <= DURATION - FINAL_TIME) {
-        // Acercándose a la zona final: ralentizar
-      }
-      // Cambiar a 'final' cuando vemos el árbol en pantalla
-      if (finalTree && finalTree.worldX - cameraX < VW - 80) {
+      // La cámara se detiene al llegar a la posición del árbol final.
+      if (cameraX >= stopCameraX) {
+        cameraX = stopCameraX;
         phase = 'final';
-        // Anuncio
-        popups.push({ worldX: cameraX + VW / 2, y: 60, text: '¡SALTO FINAL!', t: 2.0 });
+        warningAlpha = 0;
+        meterPos = 0;
+        meterDir = 1;
       }
     } else if (phase === 'final') {
-      // Detener el scroll, dejar que el jugador pueda saltar al árbol
-      // (nada que avanzar)
+      // Aviso aparece con fade-in
+      warningAlpha = Math.min(1, warningAlpha + dt * 2);
+      // Indicador de fuerza oscila rebotando entre 0 y 1
+      meterPos += METER_SPEED * meterDir * dt;
+      if (meterPos >= 1) { meterPos = 1; meterDir = -1; }
+      if (meterPos <= 0) { meterPos = 0; meterDir = 1; }
+    } else if (phase === 'carrerilla') {
+      // Aviso desaparece
+      warningAlpha = Math.max(0, warningAlpha - dt * 3);
+      // Blas corre hacia el tronco
+      player.x = Math.min(runUpTargetX, player.x + CARRERILLA_SPEED * dt);
+      if (player.x >= runUpTargetX) {
+        // Lanza el salto vertical con la fuerza elegida
+        player.x = runUpTargetX;
+        const vy = -(FORCE_MIN_VY + (FORCE_MAX_VY - FORCE_MIN_VY) * selectedForce);
+        player.vy = vy;
+        player.onGround = false;
+        phase = 'jump';
+      }
+    } else if (phase === 'jump') {
+      // Al llegar al pico decidimos por la fuerza elegida: si el jugador
+      // pulsó cuando el indicador estaba por encima de la mitad de la
+      // barra, alcanza la copa; si no, sigue cayendo y se estampa.
+      if (finalTree && !reachedTree && player.vy >= 0) {
+        if (selectedForce >= 0.5) {
+          const tx = finalTree.worldX - cameraX;
+          player.x = tx - player.w / 2;
+          player.y = finalTree.platformY - player.h;
+          player.vy = 0;
+          player.onGround = true;
+          reachedTree = true;
+          phase = 'win_dialog';
+          winDialogTimer = 0;
+          winDialogStage = 0;
+          player.speech = {
+            text: '¿Qué hace un pájaro de 100kg en una rama?',
+            t: 99,
+          };
+          showChoiceButtons();
+        }
+      }
+    } else if (phase === 'win_dialog') {
+      // Stage 0: esperando a que el jugador elija opción (no avanza el timer).
+      // Stage 1: ya respondió Blas; tras unos segundos, win().
+      if (winDialogStage >= 1) {
+        winDialogTimer += dt;
+        if (winDialogTimer > 2.8) {
+          win();
+        }
+      }
+    } else if (phase === 'fall_down') {
+      fallDownTimer += dt;
+      if (fallDownTimer > 2.3) {
+        // Pierde todas las vidas y pasa a Game Over
+        lives = 0;
+        updateHUD();
+        phase = 'over';
+        running = false;
+        window.Game && window.Game.onGameOver && window.Game.onGameOver();
+      }
     }
 
-    // Físicas del jugador
-    player.vy += GRAVITY * dt;
-    player.y += player.vy * dt;
-    player.onGround = false;
-
-    // Suelo
-    if (player.y + player.h >= GROUND_Y) {
-      player.y = GROUND_Y - player.h;
-      player.vy = 0;
-      player.onGround = true;
-    }
-
-    // Plataforma del árbol (solo en fase final)
-    if (phase === 'final' && finalTree) {
-      const treeScreenX = finalTree.worldX - cameraX;
-      const px = player.x;
-      const py = player.y;
-      const pw = player.w;
-      const ph = player.h;
-      const platLeft = treeScreenX - finalTree.platformW / 2;
-      const platRight = treeScreenX + finalTree.platformW / 2;
-      const platTop = finalTree.platformY;
-      // Colisión por arriba si cae sobre la copa
-      if (
-        py + ph >= platTop && py + ph - player.vy * dt <= platTop + 4 &&
-        px + pw > platLeft && px < platRight &&
-        player.vy >= 0
-      ) {
-        player.y = platTop - ph;
+    // Físicas: solo aplican en fases con movimiento vertical/horizontal libre.
+    const physicsActive = (
+      phase === 'run' || phase === 'jump' || phase === 'carrerilla'
+    );
+    const wasOnGround = player.onGround;
+    if (physicsActive) {
+      player.vy += GRAVITY * dt;
+      player.y += player.vy * dt;
+      player.onGround = false;
+      // Suelo
+      if (player.y + player.h >= GROUND_Y) {
+        player.y = GROUND_Y - player.h;
         player.vy = 0;
         player.onGround = true;
-        // ¡Victoria!
-        win();
       }
+      // Techo durante el super-salto: evita que Blas se salga por arriba
+      // antes de que la lógica decida ganar o perder.
+      if (phase === 'jump' && finalTree && player.y < finalTree.platformY - player.h - 8) {
+        player.y = finalTree.platformY - player.h - 8;
+        player.vy = Math.max(0, player.vy);
+      }
+    }
+
+    // Si estaba en el aire (jump) y vuelve a tocar el suelo sin haber
+    // alcanzado la copa → se cae bocarriba.
+    if (phase === 'jump' && !wasOnGround && player.onGround && !reachedTree) {
+      phase = 'fall_down';
+      fallDownTimer = 0;
+      player.vy = 0;
     }
 
     // Invulnerabilidad
@@ -418,8 +661,24 @@
     popups.forEach((p) => { p.t -= dt; });
     popups = popups.filter((p) => p.t > 0);
 
+    // Bocadillo de Blas (decae con el tiempo)
+    if (player.speech.t > 0) player.speech.t -= dt;
+
     // Colisiones
     handleCollisions();
+
+    // Vecinos que se han escapado vivos: pierde vida y le gritan en rojo.
+    // Se considera "escapado" cuando el vecino queda detrás de Blas en el mundo.
+    const blasWorldX = cameraX + player.x;
+    neighbors.forEach((n) => {
+      if (!n.alive || n.missed) return;
+      if (n.worldX < blasWorldX) {
+        n.missed = true;
+        n.phrase = '¡Cabronazo! ¡Mañana vuelves!';
+        n.sayTimer = 0;
+        if (invuln <= 0) loseLife();
+      }
+    });
   }
 
   function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
@@ -444,6 +703,10 @@
           e.alive = false;
           score += 100;
           popups.push({ worldX: n.worldX, y: n.y - 8, text: '+100', t: 0.9 });
+          // Blas solo contesta si el vecino le había reclamado el paquete
+          if (/paquete/i.test(n.phrase)) {
+            player.speech = { text: BLAS_KILL_PHRASE, t: 1.6 };
+          }
           updateHUD();
         }
       });
@@ -550,11 +813,20 @@
     // Sobres
     drawEnvelopes();
 
-    // Jugador
-    drawPlayer();
+    // Jugador (tumbado si se cayó)
+    if (phase === 'fall_down') {
+      drawPlayerFallen();
+    } else {
+      drawPlayer();
+    }
 
     // Popups (puntuaciones flotantes y textos)
     drawPopups();
+
+    // Overlays de la zona final
+    drawFinalWarning();
+    drawForceMeter();
+    drawFallDownOverlay();
 
     // Marca de inicio
     if (cameraX < 40 && phase === 'run') {
@@ -628,46 +900,224 @@
   function drawHouses() {
     houses.forEach((h) => {
       const sx = h.worldX - cameraX;
-      if (sx + h.w < -10 || sx > VW + 10) return;
+      if (sx + h.w < -20 || sx > VW + 20) return;
       const y = GROUND_Y - h.h;
-      // Cuerpo
-      ctx.fillStyle = h.color;
+
+      // Cuerpo con un degradado vertical para dar volumen
+      const grad = ctx.createLinearGradient(0, y, 0, y + h.h);
+      grad.addColorStop(0, lighten(h.color, 0.08));
+      grad.addColorStop(1, darken(h.color, 0.1));
+      ctx.fillStyle = grad;
       ctx.fillRect(sx, y, h.w, h.h);
-      // Tejado
+
+      // Banda de sombra a la izquierda
+      ctx.fillStyle = darken(h.color, 0.18);
+      ctx.fillRect(sx, y, 3, h.h);
+
+      // Tejado con relieve
       ctx.fillStyle = h.roof;
       ctx.beginPath();
-      ctx.moveTo(sx - 6, y);
-      ctx.lineTo(sx + h.w / 2, y - 28);
-      ctx.lineTo(sx + h.w + 6, y);
+      ctx.moveTo(sx - 8, y);
+      ctx.lineTo(sx + h.w / 2, y - 32);
+      ctx.lineTo(sx + h.w + 8, y);
       ctx.closePath();
       ctx.fill();
+      // Sombra del lado oscuro del tejado
+      ctx.fillStyle = darken(h.roof, 0.22);
+      ctx.beginPath();
+      ctx.moveTo(sx + h.w / 2, y - 32);
+      ctx.lineTo(sx + h.w + 8, y);
+      ctx.lineTo(sx + h.w / 2 + 1, y);
+      ctx.closePath();
+      ctx.fill();
+      // Alero
+      ctx.fillStyle = darken(h.roof, 0.4);
+      ctx.fillRect(sx - 8, y, h.w + 16, 3);
+
       // Puerta
       ctx.fillStyle = COLORS.door;
-      const dw = 18, dh = 30;
-      ctx.fillRect(sx + h.w / 2 - dw / 2, y + h.h - dh, dw, dh);
+      const dw = 22, dh = 34;
+      const dx = sx + h.w / 2 - dw / 2;
+      const dy = y + h.h - dh;
+      ctx.fillRect(dx, dy, dw, dh);
+      // Marco oscuro
+      ctx.fillStyle = COLORS.doorDark;
+      ctx.fillRect(dx, dy, 1.5, dh);
+      ctx.fillRect(dx + dw - 1.5, dy, 1.5, dh);
+      ctx.fillRect(dx, dy, dw, 1.5);
+      // Panel interior
+      ctx.fillStyle = darken(COLORS.door, 0.25);
+      ctx.fillRect(dx + 3, dy + 4, dw - 6, dh - 8);
+      // Pomo
       ctx.fillStyle = COLORS.yellow;
-      ctx.fillRect(sx + h.w / 2 + 5, y + h.h - dh / 2 - 1, 2, 2); // pomo
-      // Ventanas
-      ctx.fillStyle = COLORS.windowFrame;
-      const wW = 18, wH = 16;
-      const wYs = [y + 16];
+      ctx.beginPath();
+      ctx.arc(dx + dw - 4, dy + dh / 2, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ventanas (con marco, cruz y reflejo)
+      const wW = 22, wH = 20;
+      const wY = y + 18;
       const wXs = [sx + 14, sx + h.w - 14 - wW];
       wXs.forEach((wx) => {
-        wYs.forEach((wy) => {
-          ctx.fillRect(wx, wy, wW, wH);
-          ctx.fillStyle = COLORS.window;
-          ctx.fillRect(wx + 2, wy + 2, wW - 4, wH - 4);
-          ctx.fillStyle = COLORS.windowFrame;
-          ctx.fillRect(wx + wW / 2 - 1, wy + 2, 2, wH - 4);
-          ctx.fillRect(wx + 2, wy + wH / 2 - 1, wW - 4, 2);
-        });
+        // Marco
+        ctx.fillStyle = COLORS.windowFrame;
+        ctx.fillRect(wx - 1, wY - 1, wW + 2, wH + 2);
+        // Cristal
+        ctx.fillStyle = COLORS.window;
+        ctx.fillRect(wx, wY, wW, wH);
+        // Reflejo
+        ctx.fillStyle = COLORS.windowSheen;
+        ctx.fillRect(wx + 1, wY + 1, wW / 2 - 2, wH / 2 - 1);
+        // Cruz central
+        ctx.fillStyle = COLORS.windowFrame;
+        ctx.fillRect(wx + wW / 2 - 0.5, wY, 1, wH);
+        ctx.fillRect(wx, wY + wH / 2 - 0.5, wW, 1);
+        // Alféizar
+        ctx.fillStyle = darken(h.color, 0.3);
+        ctx.fillRect(wx - 2, wY + wH, wW + 4, 2);
       });
-      // Número de portal
+
+      // Balcón (algunas casas)
+      if (h.hasBalcony) {
+        const by = y + Math.floor(h.h * 0.5);
+        const bLeft = sx + 14;
+        const bWidth = h.w - 28;
+        // Plataforma
+        ctx.fillStyle = COLORS.balcony;
+        ctx.fillRect(bLeft - 2, by, bWidth + 4, 4);
+        ctx.fillStyle = darken(COLORS.balcony, 0.3);
+        ctx.fillRect(bLeft - 2, by + 4, bWidth + 4, 1);
+        // Puerta de balcón en el centro
+        const bdW = 18, bdH = 26;
+        const bdX = sx + h.w / 2 - bdW / 2;
+        const bdY = by - bdH;
+        ctx.fillStyle = COLORS.windowFrame;
+        ctx.fillRect(bdX - 1, bdY - 1, bdW + 2, bdH + 2);
+        ctx.fillStyle = COLORS.window;
+        ctx.fillRect(bdX, bdY, bdW, bdH);
+        ctx.fillStyle = COLORS.windowSheen;
+        ctx.fillRect(bdX + 1, bdY + 1, bdW / 2 - 1, bdH / 2);
+        ctx.fillStyle = COLORS.windowFrame;
+        ctx.fillRect(bdX + bdW / 2 - 0.5, bdY, 1, bdH);
+        // Barandilla: pasamanos arriba y barrotes
+        ctx.fillStyle = COLORS.rail;
+        ctx.fillRect(bLeft - 2, by - 12, bWidth + 4, 2);
+        for (let rx = bLeft; rx < bLeft + bWidth; rx += 4) {
+          ctx.fillRect(rx, by - 12, 1, 12);
+        }
+      }
+
+      // Número de portal sobre la puerta
       ctx.fillStyle = '#fff';
-      ctx.font = '6px "Press Start 2P", monospace';
+      ctx.font = '7px "Press Start 2P", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(String((h.idx % 9) + 1), sx + h.w / 2, y + h.h - dh - 4);
+      ctx.fillText(String((h.idx % 9) + 1), sx + h.w / 2, dy - 4);
     });
+  }
+
+  // -------- Helpers de color y formas --------
+  function hexToRgb(hex) {
+    const m = hex.replace('#', '');
+    const v = parseInt(m, 16);
+    return { r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255 };
+  }
+  function rgbToHex(r, g, b) {
+    const c = (v) => ('0' + Math.max(0, Math.min(255, v | 0)).toString(16)).slice(-2);
+    return '#' + c(r) + c(g) + c(b);
+  }
+  function lighten(hex, amount) {
+    const { r, g, b } = hexToRgb(hex);
+    return rgbToHex(r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount);
+  }
+  function darken(hex, amount) {
+    const { r, g, b } = hexToRgb(hex);
+    return rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount));
+  }
+  function roundRectPath(x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.lineTo(x + w - rr, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+    ctx.lineTo(x + w, y + h - rr);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+    ctx.lineTo(x + rr, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+    ctx.lineTo(x, y + rr);
+    ctx.quadraticCurveTo(x, y, x + rr, y);
+    ctx.closePath();
+  }
+
+  // Dibuja un bocadillo de cómic con cola hacia abajo apuntando al hablante.
+  // (cx, cy) = posición del hablante (la cola apunta ahí).
+  // variant: 'normal' (blanco) | 'angry' (rojo)
+  function drawSpeechBubble(cx, cy, text, alpha, variant) {
+    if (alpha <= 0) return;
+    const angry = variant === 'angry';
+    const bg     = angry ? '#d11a1a' : '#fff';
+    const fg     = angry ? '#ffffff' : '#000000';
+    const border = angry ? '#5a0a0a' : '#000000';
+
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, alpha);
+
+    ctx.font = angry
+      ? 'bold 10px "Segoe UI", "Helvetica Neue", Arial, sans-serif'
+      : BUBBLE_FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(text).width;
+    const padX = 7;
+    const w = Math.ceil(tw) + padX * 2;
+    const h = angry ? 18 : 16;
+    let bx = Math.round(cx - w / 2);
+    if (bx < 4) bx = 4;
+    if (bx + w > VW - 4) bx = VW - 4 - w;
+    let by = cy - h - 8;
+    // Si el hablante está muy arriba (como Blas en la copa del ciprés),
+    // pegamos el bocadillo al top y ocultamos la cola.
+    let showTail = true;
+    if (by < 4) {
+      by = 4;
+      showTail = false;
+    }
+
+    // Sombra
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    roundRectPath(bx + 1, by + 2, w, h, 5);
+    ctx.fill();
+
+    // Fondo
+    ctx.fillStyle = bg;
+    roundRectPath(bx, by, w, h, 5);
+    ctx.fill();
+    ctx.strokeStyle = border;
+    ctx.lineWidth = angry ? 1.5 : 1;
+    roundRectPath(bx, by, w, h, 5);
+    ctx.stroke();
+
+    // Cola
+    if (showTail) {
+      const tipX = Math.max(bx + 6, Math.min(bx + w - 6, cx));
+      ctx.fillStyle = bg;
+      ctx.beginPath();
+      ctx.moveTo(tipX - 4, by + h - 0.5);
+      ctx.lineTo(tipX, by + h + 6);
+      ctx.lineTo(tipX + 4, by + h - 0.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = border;
+      ctx.beginPath();
+      ctx.moveTo(tipX - 4, by + h);
+      ctx.lineTo(tipX, by + h + 6);
+      ctx.lineTo(tipX + 4, by + h);
+      ctx.stroke();
+    }
+
+    // Texto
+    ctx.fillStyle = fg;
+    ctx.fillText(text, bx + w / 2, by + h / 2 + 1);
+    ctx.restore();
   }
 
   function drawCasablanca() {
@@ -675,36 +1125,96 @@
     const sx = casablanca.worldX - cameraX;
     if (sx + casablanca.w < -10 || sx > VW + 10) return;
     const y = GROUND_Y - casablanca.h;
-    // Cuerpo
-    ctx.fillStyle = COLORS.casablanca;
-    ctx.fillRect(sx, y, casablanca.w, casablanca.h);
-    // Tejado plano
+    const cw = casablanca.w, ch = casablanca.h;
+
+    // Cuerpo con degradado
+    const grad = ctx.createLinearGradient(0, y, 0, y + ch);
+    grad.addColorStop(0, lighten(COLORS.casablanca, 0.08));
+    grad.addColorStop(1, darken(COLORS.casablanca, 0.12));
+    ctx.fillStyle = grad;
+    ctx.fillRect(sx, y, cw, ch);
+    // Lado sombreado
+    ctx.fillStyle = darken(COLORS.casablanca, 0.2);
+    ctx.fillRect(sx, y, 4, ch);
+
+    // Tejado plano con cornisa
     ctx.fillStyle = '#8a6a4a';
-    ctx.fillRect(sx - 4, y - 10, casablanca.w + 8, 10);
-    // Letrero
+    ctx.fillRect(sx - 6, y - 12, cw + 12, 12);
+    ctx.fillStyle = '#5a3416';
+    ctx.fillRect(sx - 6, y - 12, cw + 12, 3);
+
+    // Cartel grande arriba
     ctx.fillStyle = COLORS.casablancaSign;
-    ctx.fillRect(sx + 10, y + 6, casablanca.w - 20, 22);
+    ctx.fillRect(sx + 8, y + 8, cw - 16, 28);
+    ctx.strokeStyle = '#5a0a0a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(sx + 8, y + 8, cw - 16, 28);
     ctx.fillStyle = '#fff';
-    ctx.font = '10px "Press Start 2P", monospace';
+    ctx.font = 'bold 13px "Press Start 2P", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('CASABLANCA', sx + casablanca.w / 2, y + 22);
-    // Puerta
-    ctx.fillStyle = COLORS.door;
-    const dW = 30, dH = 50;
-    ctx.fillRect(sx + casablanca.w / 2 - dW / 2, y + casablanca.h - dH, dW, dH);
-    ctx.fillStyle = COLORS.yellow;
-    ctx.fillRect(sx + casablanca.w / 2 + 8, y + casablanca.h - dH / 2, 3, 3);
-    // Ventanal
-    ctx.fillStyle = COLORS.windowFrame;
-    ctx.fillRect(sx + 14, y + 40, 30, 30);
-    ctx.fillStyle = COLORS.window;
-    ctx.fillRect(sx + 16, y + 42, 26, 26);
-    ctx.fillStyle = COLORS.windowFrame;
-    ctx.fillRect(sx + 14, y + 40 + 13, 30, 2);
-    ctx.fillRect(sx + 14 + 14, y + 40, 2, 30);
-    // Toldo
+    ctx.textBaseline = 'middle';
+    ctx.fillText('CASABLANCA', sx + cw / 2, y + 22);
+    ctx.textBaseline = 'alphabetic';
+
+    // Toldo rojo a rayas
+    const tW = cw - 24;
+    const tX = sx + 12;
+    const tY = y + 44;
     ctx.fillStyle = '#aa1f1f';
-    ctx.fillRect(sx + 8, y + 30, casablanca.w - 16, 6);
+    ctx.fillRect(tX, tY, tW, 10);
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < tW; i += 14) {
+      ctx.fillRect(tX + i, tY, 6, 10);
+    }
+    // Borde inferior del toldo (ondulado)
+    ctx.fillStyle = '#aa1f1f';
+    for (let i = 0; i < tW; i += 10) {
+      ctx.beginPath();
+      ctx.arc(tX + i + 5, tY + 10, 5, 0, Math.PI);
+      ctx.fill();
+    }
+
+    // Ventanal grande
+    ctx.fillStyle = COLORS.windowFrame;
+    ctx.fillRect(sx + 14, tY + 22, 50, 50);
+    ctx.fillStyle = COLORS.window;
+    ctx.fillRect(sx + 16, tY + 24, 46, 46);
+    ctx.fillStyle = COLORS.windowSheen;
+    ctx.fillRect(sx + 17, tY + 25, 22, 22);
+    ctx.fillStyle = COLORS.windowFrame;
+    ctx.fillRect(sx + 14 + 24, tY + 22, 2, 50);
+    ctx.fillRect(sx + 14, tY + 22 + 24, 50, 2);
+    // Sombrita interior (gente al fondo del bar)
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(sx + 22, tY + 56, 36, 12);
+
+    // Puerta principal a la derecha del ventanal
+    const dW = 36, dH = 64;
+    const dX = sx + cw - dW - 18;
+    const dY = y + ch - dH;
+    ctx.fillStyle = COLORS.door;
+    ctx.fillRect(dX, dY, dW, dH);
+    ctx.fillStyle = COLORS.doorDark;
+    ctx.fillRect(dX, dY, 2, dH);
+    ctx.fillRect(dX + dW - 2, dY, 2, dH);
+    ctx.fillRect(dX, dY, dW, 2);
+    // Paneles
+    ctx.fillStyle = darken(COLORS.door, 0.25);
+    ctx.fillRect(dX + 4, dY + 6, dW - 8, dH / 2 - 6);
+    ctx.fillRect(dX + 4, dY + dH / 2 + 2, dW - 8, dH / 2 - 8);
+    // Pomo
+    ctx.fillStyle = COLORS.yellow;
+    ctx.beginPath();
+    ctx.arc(dX + dW - 6, dY + dH / 2, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Letrerito "ABIERTO" colgado
+    ctx.fillStyle = '#2c2c2c';
+    ctx.fillRect(dX + dW / 2 - 14, dY + 6, 28, 8);
+    ctx.fillStyle = '#7eff7e';
+    ctx.font = '5px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('ABIERTO', dX + dW / 2, dY + 12);
   }
 
   function drawTree() {
@@ -713,86 +1223,319 @@
     if (sx < -120 || sx > VW + 120) return;
 
     const baseY = finalTree.baseY;
-    // Tronco
+    const tw = finalTree.trunkW;
+    const th = finalTree.trunkH;
+
+    // Tronco asomando solo por la base (la copa lo tapa casi todo)
     ctx.fillStyle = COLORS.trunk;
-    ctx.fillRect(sx - finalTree.trunkW / 2, baseY - finalTree.trunkH, finalTree.trunkW, finalTree.trunkH);
+    ctx.fillRect(sx - tw / 2, baseY - 30, tw, 30);
     ctx.fillStyle = COLORS.trunkDark;
-    ctx.fillRect(sx - finalTree.trunkW / 2, baseY - finalTree.trunkH, 4, finalTree.trunkH);
+    ctx.fillRect(sx - tw / 2, baseY - 30, 3, 30);
 
-    // Copa (varios círculos)
-    const cy = baseY - finalTree.trunkH - 10;
+    // Copa: forma de ciprés alargado (elipse muy vertical con punta arriba)
+    const cTop = finalTree.canopyTop;
+    const cBot = finalTree.canopyBot;
+    const cw = finalTree.canopyW;
+    const ch = cBot - cTop;
+    const cx = sx;
+    const cy = (cTop + cBot) / 2;
+
+    // Sombra (zona oscura izquierda)
     ctx.fillStyle = COLORS.leavesDark;
-    [[-30, 6], [30, 6], [0, -10], [-18, -22], [18, -22]].forEach(([dx, dy]) => {
-      ctx.beginPath();
-      ctx.arc(sx + dx, cy + dy, finalTree.canopyR - 16, 0, Math.PI * 2);
-      ctx.fill();
-    });
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, cw / 2, ch / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Recorte de luz lateral derecha
     ctx.fillStyle = COLORS.leaves;
-    [[-22, 0], [22, 0], [0, -18], [-12, -10], [12, -10]].forEach(([dx, dy]) => {
+    ctx.beginPath();
+    ctx.ellipse(cx + 4, cy + 6, cw / 2 - 4, ch / 2 - 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Punta más oscura
+    ctx.fillStyle = COLORS.leavesDark;
+    ctx.beginPath();
+    ctx.ellipse(cx, cTop + 12, cw / 2 - 4, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Textura: rayas verticales para evocar el ciprés
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+    ctx.lineWidth = 0.6;
+    for (let i = -3; i <= 3; i++) {
+      const xLine = cx + i * (cw / 8);
       ctx.beginPath();
-      ctx.arc(sx + dx, cy + dy, finalTree.canopyR - 18, 0, Math.PI * 2);
-      ctx.fill();
-    });
+      ctx.moveTo(xLine, cTop + 14);
+      ctx.lineTo(xLine, cBot - 10);
+      ctx.stroke();
+    }
 
-    // Indicador de plataforma (flecha intermitente)
-    if (phase === 'final') {
+    // Plataforma (copa): pequeña marca verde más clara donde Blas debe caer
+    ctx.fillStyle = lighten(COLORS.leaves, 0.25);
+    ctx.fillRect(cx - finalTree.platformW / 2, finalTree.platformY, finalTree.platformW, 3);
+
+    // Flecha intermitente apuntando a la copa durante final/jump
+    if (phase === 'final' || phase === 'jump') {
       const blink = Math.floor(performance.now() / 250) % 2 === 0;
       if (blink) {
         ctx.fillStyle = '#fff';
         ctx.font = '10px "Press Start 2P", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('▼', sx, finalTree.platformY - 8);
+        ctx.fillText('▼', cx, finalTree.platformY - 6);
       }
     }
+  }
+
+  // Aviso "¡Salta lo más alto que puedas!" mientras se está eligiendo fuerza
+  function drawFinalWarning() {
+    if (warningAlpha <= 0.01) return;
+    ctx.save();
+    ctx.globalAlpha = warningAlpha * 0.45;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, VW, VH);
+    ctx.globalAlpha = warningAlpha;
+    const bx = 30, by = 30, bw = VW - 60, bh = 70;
+    ctx.fillStyle = COLORS.yellow;
+    roundRectPath(bx, by, bw, bh, 8);
+    ctx.fill();
+    ctx.strokeStyle = COLORS.blue;
+    ctx.lineWidth = 4;
+    roundRectPath(bx, by, bw, bh, 8);
+    ctx.stroke();
+    ctx.fillStyle = COLORS.blue;
+    ctx.font = 'bold 14px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('¡SALTA LO MÁS', VW / 2, by + 24);
+    ctx.fillText('ALTO QUE PUEDAS!', VW / 2, by + 48);
+    ctx.restore();
+  }
+
+  // Barra oscilante de fuerza: indicador rebota muy rápido entre 0 y 1
+  function drawForceMeter() {
+    if (phase !== 'final') return;
+    const W = 280, H = 18;
+    const x0 = (VW - W) / 2;
+    const y0 = VH - 70;
+    ctx.save();
+    // Fondo
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    roundRectPath(x0 - 6, y0 - 26, W + 12, H + 44, 8);
+    ctx.fill();
+    // Texto instrucción (parpadea)
+    const blink = Math.floor(performance.now() / 350) % 2 === 0;
+    ctx.fillStyle = blink ? '#fff' : '#ffd200';
+    ctx.font = 'bold 11px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PULSA ▲ PARA SALTAR', VW / 2, y0 - 12);
+    // Barra de fondo con gradiente
+    const grad = ctx.createLinearGradient(x0, 0, x0 + W, 0);
+    grad.addColorStop(0, '#3a8a3a');
+    grad.addColorStop(0.55, '#ffd200');
+    grad.addColorStop(1, '#ff3a3a');
+    ctx.fillStyle = grad;
+    roundRectPath(x0, y0, W, H, 5);
+    ctx.fill();
+    // Marca de "mitad del árbol" como referencia visual
+    const halfMark = 0.55;
+    const markX = x0 + W * halfMark;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(markX, y0 - 4);
+    ctx.lineTo(markX, y0 + H + 4);
+    ctx.stroke();
+    // Borde de la barra
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1.5;
+    roundRectPath(x0, y0, W, H, 5);
+    ctx.stroke();
+    // Indicador (flecha) en la posición actual
+    const indX = x0 + W * meterPos;
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(indX, y0 - 2);
+    ctx.lineTo(indX - 6, y0 - 12);
+    ctx.lineTo(indX + 6, y0 - 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(indX, y0 + H + 2);
+    ctx.lineTo(indX - 6, y0 + H + 12);
+    ctx.lineTo(indX + 6, y0 + H + 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Overlay grande "TE CAÍSTE DEL ÁRBOL" mientras Blas está tumbado
+  function drawFallDownOverlay() {
+    if (phase !== 'fall_down') return;
+    const alpha = Math.min(1, fallDownTimer * 2);
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.4;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, VW, VH);
+    ctx.globalAlpha = alpha;
+    const bx = 30, by = VH / 2 - 30, bw = VW - 60, bh = 60;
+    ctx.fillStyle = '#c41a1a';
+    roundRectPath(bx, by, bw, bh, 8);
+    ctx.fill();
+    ctx.strokeStyle = '#5a0a0a';
+    ctx.lineWidth = 4;
+    roundRectPath(bx, by, bw, bh, 8);
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('¡TE CAÍSTE', VW / 2, by + 22);
+    ctx.fillText('DEL ÁRBOL!', VW / 2, by + 42);
+    ctx.restore();
+  }
+
+  function drawNeighborHeadClean(sx, y, pal) {
+    ctx.save();
+    // Cara
+    ctx.fillStyle = COLORS.skin;
+    ctx.beginPath();
+    ctx.ellipse(sx, y + 6, 7, 7.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Sombrita lateral derecha
+    ctx.fillStyle = COLORS.skinDark;
+    ctx.beginPath();
+    ctx.ellipse(sx + 3.5, y + 7, 3, 5.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Pelo (gorro de pelo)
+    ctx.fillStyle = pal.hair;
+    ctx.beginPath();
+    ctx.ellipse(sx, y + 2, 7.5, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(sx - 7, y + 1, 14, 3);
+    // Mechón
+    ctx.fillStyle = darken(pal.hair, 0.2);
+    ctx.fillRect(sx - 2, y + 1, 4, 3);
+    // Cejas enfadadas
+    ctx.fillStyle = '#000';
+    ctx.fillRect(sx - 5, y + 5, 4, 1);
+    ctx.fillRect(sx + 1, y + 5, 4, 1);
+    ctx.fillRect(sx - 4, y + 4, 2, 1);
+    ctx.fillRect(sx + 3, y + 4, 2, 1);
+    // Ojos
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(sx - 4, y + 6, 3, 2);
+    ctx.fillRect(sx + 1, y + 6, 3, 2);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(sx - 3, y + 6, 2, 2);
+    ctx.fillRect(sx + 2, y + 6, 2, 2);
+    // Boca gritando (abierta, óvalo oscuro con lengua)
+    ctx.fillStyle = '#3a1010';
+    ctx.beginPath();
+    ctx.ellipse(sx, y + 10.5, 3, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#d44';
+    ctx.fillRect(sx - 1, y + 11, 2, 1);
+    // Orejas
+    ctx.fillStyle = COLORS.skin;
+    ctx.beginPath();
+    ctx.ellipse(sx - 7, y + 7, 1.5, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(sx + 7, y + 7, 1.5, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   function drawNeighbors() {
     neighbors.forEach((n) => {
       if (!n.alive) return;
       const sx = n.worldX - cameraX;
-      if (sx < -30 || sx > VW + 30) return;
-
-      // Cuerpo
-      ctx.fillStyle = COLORS.shirt;
-      ctx.fillRect(sx - 7, n.y + 10, 14, 16);
-      // Piernas
-      ctx.fillStyle = COLORS.pants;
-      ctx.fillRect(sx - 6, n.y + 26, 5, 10);
-      ctx.fillRect(sx + 1, n.y + 26, 5, 10);
-      // Brazos
-      ctx.fillStyle = COLORS.shirt;
-      ctx.fillRect(sx - 10, n.y + 12, 3, 10);
-      ctx.fillRect(sx + 7, n.y + 12, 3, 10);
-      // Cabeza
-      ctx.fillStyle = COLORS.skin;
-      ctx.fillRect(sx - 6, n.y, 12, 12);
-      ctx.fillStyle = '#000';
-      ctx.fillRect(sx - 3, n.y + 4, 2, 2);
-      ctx.fillRect(sx + 1, n.y + 4, 2, 2);
-      // Boca enfadada
-      ctx.fillRect(sx - 3, n.y + 8, 6, 1);
+      if (sx < -40 || sx > VW + 40) return;
+      drawNeighborBodyV2(sx, n);
 
       // Bocadillo
-      const showBubble = Math.floor(n.sayTimer * 0.8) % 2 === 0;
-      if (showBubble) {
-        const txt = '¿Y mi paquete?';
-        ctx.font = '6px "Press Start 2P", monospace';
-        ctx.textAlign = 'center';
-        const w = ctx.measureText(txt).width + 8;
-        const bx = sx - w / 2;
-        const by = n.y - 22;
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(bx, by, w, 12);
-        ctx.fillStyle = '#000';
-        ctx.fillRect(bx, by, w, 1);
-        ctx.fillRect(bx, by + 11, w, 1);
-        ctx.fillRect(bx, by, 1, 12);
-        ctx.fillRect(bx + w - 1, by, 1, 12);
-        ctx.fillRect(sx - 2, by + 12, 4, 2);
-        ctx.fillStyle = '#000';
-        ctx.fillText(txt, sx, by + 8);
+      let alpha = 0;
+      let variant = 'normal';
+      if (n.missed) {
+        // Cuando se le ha escapado: bocadillo rojo, fade-in rápido y se
+        // mantiene visible hasta que sale de pantalla.
+        alpha = Math.min(1, n.sayTimer * 4);
+        variant = 'angry';
+      } else {
+        // Pulsa: visible ~2.5s, fade ~0.5s, oculto ~1s
+        const cycle = n.sayTimer % 4;
+        if (cycle < 2.5) alpha = 1;
+        else if (cycle < 3) alpha = 1 - (cycle - 2.5) / 0.5;
+      }
+      if (alpha > 0) {
+        drawSpeechBubble(sx, n.y + 2, n.phrase, alpha, variant);
       }
     });
+  }
+
+  // Versión limpia de cuerpo+cabeza sin contaminar estado
+  function drawNeighborBodyV2(sx, n) {
+    const y = n.y;
+    const pal = n.palette;
+
+    if (n.halfBody) {
+      // Sombra del torso
+      ctx.fillStyle = darken(pal.shirt, 0.28);
+      ctx.fillRect(sx - 8, y + 12, 16, 10);
+      // Camisa
+      ctx.fillStyle = pal.shirt;
+      ctx.fillRect(sx - 7, y + 12, 14, 9);
+      // Pliegue de luz
+      ctx.fillStyle = lighten(pal.shirt, 0.18);
+      ctx.fillRect(sx - 6, y + 12, 2, 8);
+      // Brazos sobre alféizar/baranda
+      ctx.fillStyle = pal.shirt;
+      ctx.fillRect(sx - 10, y + 14, 4, 5);
+      ctx.fillRect(sx + 6, y + 14, 4, 5);
+      // Manos
+      ctx.fillStyle = COLORS.skin;
+      ctx.fillRect(sx - 11, y + 18, 4, 3);
+      ctx.fillRect(sx + 7, y + 18, 4, 3);
+      ctx.fillStyle = COLORS.skinDark;
+      ctx.fillRect(sx - 11, y + 20, 4, 1);
+      ctx.fillRect(sx + 7, y + 20, 4, 1);
+    } else {
+      // Sombra en el suelo
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      ctx.beginPath();
+      ctx.ellipse(sx, GROUND_Y + 2, 9, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Piernas
+      ctx.fillStyle = COLORS.pants;
+      ctx.fillRect(sx - 6, y + 26, 5, 11);
+      ctx.fillRect(sx + 1, y + 26, 5, 11);
+      // Zapatos
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(sx - 7, y + 36, 7, 2);
+      ctx.fillRect(sx, y + 36, 7, 2);
+      // Camisa
+      ctx.fillStyle = darken(pal.shirt, 0.25);
+      ctx.fillRect(sx - 8, y + 12, 16, 16);
+      ctx.fillStyle = pal.shirt;
+      ctx.fillRect(sx - 7, y + 12, 14, 15);
+      ctx.fillStyle = lighten(pal.shirt, 0.18);
+      ctx.fillRect(sx - 6, y + 13, 2, 13);
+      // Brazos
+      ctx.fillStyle = pal.shirt;
+      ctx.fillRect(sx - 10, y + 14, 3, 12);
+      ctx.fillRect(sx + 7, y + 14, 3, 12);
+      // Puños cerrados
+      ctx.fillStyle = COLORS.skin;
+      ctx.fillRect(sx - 10, y + 25, 3, 4);
+      ctx.fillRect(sx + 7, y + 25, 3, 4);
+    }
+
+    // Cuello
+    ctx.fillStyle = COLORS.skinDark;
+    ctx.fillRect(sx - 2, y + 11, 4, 2);
+
+    drawNeighborHeadClean(sx, y, pal);
   }
 
   function drawBuzones() {
@@ -837,65 +1580,169 @@
 
   function drawPlayer() {
     const blink = invuln > 0 && Math.floor(performance.now() / 80) % 2 === 0;
-    if (blink) return;
-
     const x = player.x;
     const y = player.y;
 
-    // Cuerpo (polo amarillo Correos)
-    ctx.fillStyle = COLORS.yellow;
-    ctx.fillRect(x + 3, y + 14, player.w - 6, 14);
-    // Brazo
-    ctx.fillRect(x, y + 16, 4, 8);
-    ctx.fillRect(x + player.w - 4, y + 16, 4, 8);
-    // Mano
-    ctx.fillStyle = COLORS.skin;
-    ctx.fillRect(x, y + 22, 4, 4);
-    ctx.fillRect(x + player.w - 4, y + 22, 4, 4);
-    // Pantalón azul
-    ctx.fillStyle = COLORS.blue;
-    ctx.fillRect(x + 4, y + 28, player.w - 8, 8);
-    // Piernas
-    const stepPhase = !player.onGround ? 0 :
-      (Math.floor((cameraX / 6) % 4) >= 2 ? 1 : -1);
-    ctx.fillStyle = COLORS.blue;
-    ctx.fillRect(x + 5, y + 32, 6, 6);
-    ctx.fillRect(x + player.w - 11, y + 32, 6, 6);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x + 5 + (stepPhase > 0 ? 1 : 0), y + 36, 6, 2);
-    ctx.fillRect(x + player.w - 11 + (stepPhase < 0 ? 1 : 0), y + 36, 6, 2);
+    if (!blink) {
+      // Sombra en el suelo
+      if (player.onGround) {
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath();
+        ctx.ellipse(x + player.w / 2, GROUND_Y + 2, 12, 2.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
-    // Logo de Correos en el polo
-    ctx.fillStyle = COLORS.blue;
-    ctx.fillRect(x + player.w / 2 - 2, y + 19, 4, 4);
+      // Polo amarillo (con luz y sombra)
+      ctx.fillStyle = COLORS.yellowDark;
+      ctx.fillRect(x + 2, y + 14, player.w - 4, 15);
+      ctx.fillStyle = COLORS.yellow;
+      ctx.fillRect(x + 3, y + 14, player.w - 6, 13);
+      ctx.fillStyle = lighten(COLORS.yellow, 0.25);
+      ctx.fillRect(x + 4, y + 14, 3, 11);
 
-    // Bolsa de carteo
-    ctx.fillStyle = '#8a5a2a';
-    ctx.fillRect(x + player.w - 4, y + 18, 8, 12);
-    ctx.strokeStyle = '#5a3416';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x + player.w - 2, y + 14);
-    ctx.lineTo(x + player.w + 4, y + 18);
-    ctx.stroke();
-
-    // Cabeza (cara de Blas dentro de un círculo)
-    if (faceSprite) {
-      ctx.drawImage(faceSprite, x + 2, y - 4, 22, 22);
-    } else {
-      // Fallback
+      // Brazos
+      ctx.fillStyle = COLORS.yellowDark;
+      ctx.fillRect(x, y + 16, 4, 9);
+      ctx.fillRect(x + player.w - 4, y + 16, 4, 9);
+      ctx.fillStyle = COLORS.yellow;
+      ctx.fillRect(x + 1, y + 16, 2, 8);
+      ctx.fillRect(x + player.w - 3, y + 16, 2, 8);
+      // Manos
       ctx.fillStyle = COLORS.skin;
+      ctx.fillRect(x, y + 23, 4, 4);
+      ctx.fillRect(x + player.w - 4, y + 23, 4, 4);
+      ctx.fillStyle = COLORS.skinDark;
+      ctx.fillRect(x, y + 26, 4, 1);
+      ctx.fillRect(x + player.w - 4, y + 26, 4, 1);
+
+      // Pantalón
+      ctx.fillStyle = darken(COLORS.blue, 0.3);
+      ctx.fillRect(x + 3, y + 28, player.w - 6, 9);
+      ctx.fillStyle = COLORS.blue;
+      ctx.fillRect(x + 4, y + 28, player.w - 8, 8);
+      // Piernas con animación de paso (avanza tanto con la cámara como
+      // cuando Blas corre por su cuenta en la carrerilla)
+      const strideRef = cameraX + player.x;
+      const stepPhase = !player.onGround ? 0 :
+        (Math.floor((strideRef / 6) % 4) >= 2 ? 1 : -1);
+      ctx.fillStyle = COLORS.blue;
+      ctx.fillRect(x + 5, y + 32, 6, 5);
+      ctx.fillRect(x + player.w - 11, y + 32, 6, 5);
+      // Zapatos
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(x + 5 + (stepPhase > 0 ? 1 : 0), y + 36, 7, 2);
+      ctx.fillRect(x + player.w - 12 + (stepPhase < 0 ? 1 : 0), y + 36, 7, 2);
+
+      // Logo de Correos en el polo
+      ctx.fillStyle = COLORS.blue;
+      ctx.fillRect(x + player.w / 2 - 3, y + 18, 6, 5);
+      ctx.fillStyle = COLORS.yellow;
+      ctx.fillRect(x + player.w / 2 - 2, y + 20, 4, 1);
+
+      // Bolsa de carteo (mejor definida)
+      const bagX = x + player.w - 2;
+      const bagY = y + 19;
+      ctx.fillStyle = '#5a3416';
+      ctx.fillRect(bagX, bagY, 9, 13);
+      ctx.fillStyle = '#8a5a2a';
+      ctx.fillRect(bagX + 1, bagY + 1, 7, 11);
+      ctx.fillStyle = COLORS.yellow;
+      ctx.fillRect(bagX + 2, bagY + 4, 5, 3); // cornete amarillo
+      ctx.fillStyle = COLORS.blue;
+      ctx.fillRect(bagX + 3, bagY + 5, 3, 1);
+      // Correa
+      ctx.strokeStyle = '#3a2110';
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.arc(x + player.w / 2, y + 8, 10, 0, Math.PI*2);
-      ctx.fill();
+      ctx.moveTo(x + player.w - 4, y + 14);
+      ctx.lineTo(bagX + 4, bagY);
+      ctx.stroke();
+
+      // Cabeza (sprite ya recortado con la gorra incluida, fondo transparente)
+      if (faceSprite) {
+        const fw = 28;
+        const fh = fw * (faceSprite._ratio || 1.0);
+        const fx = x + player.w / 2 - fw / 2;
+        // La base del sprite (barba/mentón) queda justo encima del polo
+        const fy = (y + 14) - fh;
+        ctx.drawImage(faceSprite, fx, fy, fw, fh);
+      } else {
+        // Fallback dibujado: gorra + cara estilizadas
+        ctx.fillStyle = COLORS.skin;
+        ctx.beginPath();
+        ctx.arc(x + player.w / 2, y + 6, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = COLORS.yellow;
+        ctx.fillRect(x, y - 5, player.w, 6);
+        ctx.fillRect(x - 3, y, player.w + 6, 3);
+        ctx.fillStyle = COLORS.blue;
+        ctx.fillRect(x + player.w / 2 - 3, y - 3, 6, 3);
+      }
     }
 
-    // Gorra amarilla sobre la cara
+    // Bocadillo de Blas (no parpadea aunque invuln esté activo)
+    if (player.speech.t > 0) {
+      const a = Math.min(1, player.speech.t * 1.5);
+      drawSpeechBubble(x + player.w / 2, y - 6, player.speech.text, a, 'normal');
+    }
+  }
+
+  // Blas tumbado bocarriba en el suelo (tras caerse del árbol)
+  function drawPlayerFallen() {
+    const cx = player.x + player.w / 2;
+    const cy = GROUND_Y - 6;
+
+    // Sombra
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath();
+    ctx.ellipse(cx, GROUND_Y + 2, 28, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cuerpo tumbado (polo amarillo): rectángulo horizontal
+    ctx.fillStyle = COLORS.yellowDark;
+    ctx.fillRect(cx - 12, cy - 6, 22, 12);
     ctx.fillStyle = COLORS.yellow;
-    ctx.fillRect(x + 1, y - 4, player.w - 2, 5);
-    ctx.fillRect(x - 2, y, player.w + 4, 3); // visera
+    ctx.fillRect(cx - 11, cy - 5, 20, 10);
+
+    // Pantalón (al otro lado del torso, hacia la izquierda = "abajo")
     ctx.fillStyle = COLORS.blue;
-    ctx.fillRect(x + player.w / 2 - 3, y - 2, 6, 3); // logo cornete
+    ctx.fillRect(cx - 24, cy - 4, 13, 8);
+    // Piernas extendidas (zapatos al final)
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(cx - 28, cy - 4, 4, 3);
+    ctx.fillRect(cx - 28, cy + 1, 4, 3);
+
+    // Brazos extendidos arriba y abajo
+    ctx.fillStyle = COLORS.yellowDark;
+    ctx.fillRect(cx - 4, cy - 14, 10, 4);
+    ctx.fillRect(cx - 4, cy + 10, 10, 4);
+    ctx.fillStyle = COLORS.skin;
+    ctx.fillRect(cx + 6, cy - 14, 4, 4);
+    ctx.fillRect(cx + 6, cy + 10, 4, 4);
+
+    // Cabeza en el extremo derecho, mirando hacia arriba (sprite rotado 90°)
+    if (faceSprite) {
+      const fw = 24;
+      const fh = fw * (faceSprite._ratio || 1.0);
+      ctx.save();
+      ctx.translate(cx + 16, cy);
+      ctx.rotate(-Math.PI / 2);
+      ctx.drawImage(faceSprite, -fw / 2, -fh / 2, fw, fh);
+      ctx.restore();
+    }
+
+    // X's marcando el "K.O." (pequeñas, encima de los ojos)
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1.4;
+    const eyeY = cy - 1;
+    [cx + 12, cx + 18].forEach((ex) => {
+      ctx.beginPath();
+      ctx.moveTo(ex - 2, eyeY - 2);
+      ctx.lineTo(ex + 2, eyeY + 2);
+      ctx.moveTo(ex + 2, eyeY - 2);
+      ctx.lineTo(ex - 2, eyeY + 2);
+      ctx.stroke();
+    });
   }
 
   function drawPopups() {
@@ -958,7 +1805,7 @@
     window.addEventListener('orientationchange', () => { resizeCanvas(); checkOrientation(); });
     try {
       const [blasImg, buzonImg] = await Promise.all([
-        loadImage('assets/blas.png'),
+        loadImage('assets/blas-face.png'),
         loadImage('assets/buzon.png'),
       ]);
       faceSprite = buildFaceSprite(blasImg);
