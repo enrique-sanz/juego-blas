@@ -326,6 +326,119 @@ html, body {
   box-shadow: 0 0 0 #003399, 0 0 0 4px rgba(0,0,0,0.4);
 }
 
+/* Mientras está visible la barra de fuerza, ocultamos SALTO/SOBRE
+   porque cualquier tap de la pantalla cuenta como SALTO */
+.game-stage.is-charge .controls { display: none; }
+
+/* Tarjeta del siguiente reto en la pantalla de enhorabuena */
+.reto-card {
+  background: #003399;
+  border: 4px solid #ffd200;
+  padding: 18px 18px 16px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 520px;
+  width: 100%;
+  text-align: left;
+  font-size: clamp(10px, 2.9vw, 13px);
+  line-height: 1.6;
+}
+.reto-card__title {
+  color: #ffd200;
+  text-shadow: 2px 2px 0 #000;
+  font-size: clamp(11px, 3.2vw, 14px);
+  letter-spacing: 1px;
+  text-align: center;
+}
+.reto-card__lead {
+  text-align: center;
+  font-size: clamp(11px, 3.2vw, 14px);
+  margin-bottom: 4px;
+}
+.reto-card__rules {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reto-card__rules li {
+  padding-left: 18px;
+  position: relative;
+}
+.reto-card__rules li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: #ffd200;
+}
+
+/* Touch pads invisibles para el nivel 2 (vertical) */
+.touchpad {
+  position: absolute;
+  bottom: 0;
+  top: 38%;
+  width: 50%;
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.15);
+  font-size: 64px;
+  font-family: inherit;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 26px;
+  z-index: 6;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  user-select: none;
+  pointer-events: auto;
+}
+.touchpad--left  { left: 0; }
+.touchpad--right { right: 0; }
+.touchpad:active { background: rgba(255, 210, 0, 0.08); }
+
+/* HUD vertical: pegado arriba pero con padding mayor */
+.hud--portrait {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* La pantalla vertical del nivel 2: stage centrado en aspect 9:16 */
+.screen--game-portrait {
+  background: #1a0d04;
+  padding: 0;
+}
+.screen--game-portrait.is-active {
+  align-items: center;
+  justify-content: center;
+}
+.game-stage--portrait {
+  position: relative;
+  inset: auto;
+  height: 100dvh;
+  width: calc(100dvh * 9 / 16);
+  max-width: 100vw;
+  max-height: calc(100vw * 16 / 9);
+  background: #6b3a1a;
+  overflow: hidden;
+}
+
+/* Overlay rotación para vertical: cuando el móvil esté horizontal */
+.rotate-overlay--portrait p {
+  color: #ffd200;
+}
+.rotate-overlay.is-active {
+  display: flex;
+}
+
+/* Icono "ponerlo vertical" (sin animación de rotación) */
+.rotate__icon--portrait { animation: none; }
+
 /* Opciones del chiste final */
 .choice {
   position: absolute;
@@ -380,9 +493,70 @@ html, body {
   line-height: 1.6;
   color: #ffd200;
 }
-.screen--game .rotate-overlay.is-active {
-  display: flex;
+/* (la regla .rotate-overlay.is-active está más arriba, válida para ambos niveles) */
+
+/* ============================================================
+   MODO DEBUG (oculto: se activa pulsando la foto de Blas)
+   ============================================================ */
+.hero__img { cursor: pointer; }
+
+.debug-bar {
+  position: fixed;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  z-index: 100;
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid #ff3a3a;
+  border-radius: 6px;
+  font-family: inherit;
+  pointer-events: auto;
 }
+body.debug-mode .debug-bar { display: flex; }
+body.debug-mode::before {
+  content: 'DEBUG';
+  position: fixed;
+  bottom: 6px;
+  right: 6px;
+  z-index: 100;
+  padding: 4px 8px;
+  background: #ff3a3a;
+  color: #fff;
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: 1px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+.debug-bar__title {
+  color: #ff3a3a;
+  font-size: 9px;
+  letter-spacing: 1px;
+  margin-right: 4px;
+}
+.debug-bar__btn {
+  font-family: inherit;
+  font-size: 10px;
+  width: 28px;
+  height: 28px;
+  border: 2px solid #ffd200;
+  background: #003399;
+  color: #ffd200;
+  border-radius: 4px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.debug-bar__btn:hover { background: #1a4ab0; }
+.debug-bar__btn:active { transform: translateY(1px); }
 
 /* En pantallas grandes (desktop) mostramos centrado con un ancho cómodo */
 @media (min-width: 900px) and (orientation: landscape) {

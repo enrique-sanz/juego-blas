@@ -5,16 +5,35 @@
   'use strict';
 
   const screens = document.querySelectorAll('.screen');
+  let currentLevel = null; // 'level1' | 'level2'
 
   function showScreen(name) {
     screens.forEach((s) => {
       s.classList.toggle('is-active', s.dataset.screen === name);
     });
-    // Avisar al nivel 1 que entra o sale
+
+    // Arranca/para los motores de cada nivel según la pantalla activa
     if (name === 'level1') {
+      currentLevel = 'level1';
+      window.Level2 && window.Level2.stop();
       window.Level1 && window.Level1.start();
+    } else if (name === 'level2') {
+      currentLevel = 'level2';
+      window.Level1 && window.Level1.stop();
+      window.Level2 && window.Level2.start();
     } else {
       window.Level1 && window.Level1.stop();
+      window.Level2 && window.Level2.stop();
+    }
+
+    // Mensaje contextual en la pantalla de Game Over
+    if (name === 'gameover') {
+      const msg = document.getElementById('gameoverMsg');
+      if (msg) {
+        msg.textContent = currentLevel === 'level2'
+          ? 'Te falta hambre… ¡vuelve a intentarlo!'
+          : 'Se te han escapado los buzones… ¡vuelve a intentarlo!';
+      }
     }
   }
 
@@ -34,11 +53,15 @@
       case 'go-level1':
         showScreen('level1');
         break;
-      case 'retry-level1':
-        showScreen('level1');
+      case 'go-level2-warning':
+        showScreen('level2-warning');
         break;
-      case 'go-next-placeholder':
-        showScreen('soon');
+      case 'go-level2':
+        showScreen('level2');
+        break;
+      case 'retry-current':
+        // Reintenta el último nivel jugado
+        showScreen(currentLevel || 'level1');
         break;
       case 'go-welcome':
         showScreen('welcome');
@@ -46,9 +69,66 @@
     }
   });
 
-  // Expone API mínima para que level1.js notifique fin del nivel
+  // API expuesta a los niveles
   window.Game = {
-    onLevelComplete: () => showScreen('level1-success'),
-    onGameOver: () => showScreen('gameover'),
+    onLevelComplete:    () => showScreen('level1-success'),
+    onGameOver:         () => showScreen('gameover'),
+    onLevel2Complete:   () => showScreen('level2-success'),
+    onLevel2GameOver:   () => showScreen('gameover'),
   };
+
+  // ----------------------------------------------------------
+  // Modo debug oculto: pulsar la foto de Blas en la bienvenida
+  // ----------------------------------------------------------
+  window.debugMode = false;
+
+  // Orden de pantallas accesibles desde la barra de debug (1..9)
+  const DEBUG_SCREENS = [
+    'welcome',
+    'intro',
+    'rotate-warning',
+    'level1',
+    'level1-success',
+    'level2-warning',
+    'level2',
+    'level2-success',
+    'gameover',
+  ];
+
+  function toggleDebug() {
+    window.debugMode = !window.debugMode;
+    document.body.classList.toggle('debug-mode', window.debugMode);
+  }
+
+  // Clic en la foto de Blas de la pantalla de bienvenida
+  const heroImg = document.querySelector('.hero__img');
+  if (heroImg) {
+    heroImg.addEventListener('click', (e) => {
+      e.preventDefault();
+      toggleDebug();
+    });
+  }
+
+  // Botones de la barra: saltar de pantalla
+  const debugBar = document.getElementById('debugBar');
+  if (debugBar) {
+    debugBar.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-debug-screen]');
+      if (!btn) return;
+      e.preventDefault();
+      showScreen(btn.dataset.debugScreen);
+    });
+  }
+
+  // Atajos de teclado 1..9 cuando está activo
+  window.addEventListener('keydown', (e) => {
+    if (!window.debugMode) return;
+    if (e.key >= '1' && e.key <= '9') {
+      const idx = parseInt(e.key, 10) - 1;
+      if (DEBUG_SCREENS[idx]) {
+        e.preventDefault();
+        showScreen(DEBUG_SCREENS[idx]);
+      }
+    }
+  });
 })();

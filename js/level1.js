@@ -22,7 +22,7 @@
   const FINAL_TIME = 52;     // a partir de aquí aparece la zona del árbol
 
   // Barra de fuerza para el super-salto: indicador oscila muy rápido.
-  const METER_SPEED = 2.6;        // recorridos 0→1 por segundo (rebota rápido)
+  const METER_SPEED = 4.2;        // recorridos 0→1 por segundo (rebota muy rápido)
   const FORCE_MIN_VY = 220;       // vy con fuerza 0 (salto miserable)
   const FORCE_MAX_VY = 1080;      // vy con fuerza 1 (llega a la copa holgado)
   const CARRERILLA_SPEED = 220;   // px/s mientras coge carrerilla
@@ -358,13 +358,13 @@
     finalTree = {
       worldX: finalX,
       baseY: GROUND_Y,
-      trunkW: 16,           // tronco fino
-      trunkH: 130,          // tronco oculto bajo la copa alargada
-      canopyTop: GROUND_Y - 175,
-      canopyBot: GROUND_Y - 28,
-      canopyW: 38,
-      platformY: GROUND_Y - 170, // copa del ciprés (objetivo del salto)
-      platformW: 34,
+      trunkW: 28,           // tronco grueso (platanero)
+      trunkH: 90,           // visible bajo una copa redonda y amplia
+      canopyTop: GROUND_Y - 180,
+      canopyBot: GROUND_Y - 80,
+      canopyW: 120,         // copa frondosa y amplia
+      platformY: GROUND_Y - 170, // parte alta de la copa (objetivo del salto)
+      platformW: 80,
     };
     casablanca = {
       worldX: finalX - 320,  // ANTES del ciprés en el recorrido
@@ -422,6 +422,25 @@
         chooseAnswer(btn.dataset.choice);
       });
     }
+
+    // Pulsar cualquier parte de la pantalla durante la barra de fuerza
+    // cuenta como pulsar SALTO. El listener vive en el game-stage para
+    // no interferir con los botones del HUD o el debug bar.
+    const stage = document.getElementById('gameStage');
+    if (stage) {
+      stage.addEventListener('pointerdown', (e) => {
+        if (phase !== 'final') return;
+        // Evitar que doble disparo si el toque cayó en btnJump (oculto en final)
+        if (e.target.closest('#btnJump, #btnShoot, #choice')) return;
+        e.preventDefault();
+        doJump();
+      });
+    }
+  }
+
+  function syncUIPhase() {
+    const stage = document.getElementById('gameStage');
+    if (stage) stage.classList.toggle('is-charge', phase === 'final');
   }
 
   function showChoiceButtons() {
@@ -575,12 +594,26 @@
     } else if (phase === 'fall_down') {
       fallDownTimer += dt;
       if (fallDownTimer > 2.3) {
-        // Pierde todas las vidas y pasa a Game Over
-        lives = 0;
-        updateHUD();
-        phase = 'over';
-        running = false;
-        window.Game && window.Game.onGameOver && window.Game.onGameOver();
+        if (window.debugMode) {
+          // En debug: vuelve a la pantalla de selección de fuerza
+          phase = 'final';
+          fallDownTimer = 0;
+          reachedTree = false;
+          player.x = PLAYER_X;
+          player.y = GROUND_Y - player.h;
+          player.vy = 0;
+          player.onGround = true;
+          warningAlpha = 1;
+          meterPos = 0;
+          meterDir = 1;
+        } else {
+          // Pierde todas las vidas y pasa a Game Over
+          lives = 0;
+          updateHUD();
+          phase = 'over';
+          running = false;
+          window.Game && window.Game.onGameOver && window.Game.onGameOver();
+        }
       }
     }
 
@@ -679,6 +712,9 @@
         if (invuln <= 0) loseLife();
       }
     });
+
+    // Reflejar la fase en las clases del stage (oculta controles en final)
+    syncUIPhase();
   }
 
   function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
@@ -742,6 +778,12 @@
   }
 
   function loseLife() {
+    // En modo debug no se pierde vida (sólo rebota un poco para feedback)
+    if (window.debugMode) {
+      invuln = 1.0;
+      player.vy = -300;
+      return;
+    }
     lives -= 1;
     invuln = 1.2;
     updateHUD();
@@ -1220,55 +1262,120 @@
   function drawTree() {
     if (!finalTree) return;
     const sx = finalTree.worldX - cameraX;
-    if (sx < -120 || sx > VW + 120) return;
+    if (sx < -150 || sx > VW + 150) return;
 
     const baseY = finalTree.baseY;
     const tw = finalTree.trunkW;
     const th = finalTree.trunkH;
 
-    // Tronco asomando solo por la base (la copa lo tapa casi todo)
-    ctx.fillStyle = COLORS.trunk;
-    ctx.fillRect(sx - tw / 2, baseY - 30, tw, 30);
-    ctx.fillStyle = COLORS.trunkDark;
-    ctx.fillRect(sx - tw / 2, baseY - 30, 3, 30);
+    // Tronco grueso con la corteza moteada típica del platanero
+    // Base ligeramente ensanchada (raíces afloradas)
+    ctx.fillStyle = '#a08763';
+    ctx.beginPath();
+    ctx.ellipse(sx, baseY, tw / 2 + 6, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-    // Copa: forma de ciprés alargado (elipse muy vertical con punta arriba)
+    // Fuste principal: dos tonos para volumen
+    ctx.fillStyle = '#8a7050';
+    ctx.fillRect(sx - tw / 2, baseY - th, tw, th);
+    ctx.fillStyle = '#bda483';
+    ctx.fillRect(sx - tw / 2 + 3, baseY - th, tw - 6, th);
+    // Banda iluminada
+    ctx.fillStyle = '#d8c19a';
+    ctx.fillRect(sx - tw / 2 + 5, baseY - th + 2, 4, th - 4);
+
+    // Manchas de corteza desprendida (claros y oscuros) — sello del platanero
+    const patches = [
+      { dx: -4, dy: 14, w: 8,  h: 11, c: '#dac8a8' },
+      { dx:  6, dy: 32, w: 7,  h:  9, c: '#7a5e3e' },
+      { dx: -8, dy: 48, w: 6,  h: 12, c: '#dac8a8' },
+      { dx:  4, dy: 60, w: 8,  h:  9, c: '#7a5e3e' },
+      { dx: -3, dy: 72, w: 5,  h:  7, c: '#dac8a8' },
+      { dx:  2, dy: 22, w: 5,  h:  6, c: '#5a3a1c' },
+    ];
+    patches.forEach((p) => {
+      if (p.dy >= th - 2) return;
+      ctx.fillStyle = p.c;
+      ctx.fillRect(sx + p.dx - p.w / 2, baseY - th + p.dy, p.w, p.h);
+    });
+
+    // Algunas ramas saliendo bajo la copa
+    ctx.strokeStyle = '#7a5e3e';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(sx - tw / 2, baseY - th + 18);
+    ctx.lineTo(sx - tw / 2 - 18, baseY - th + 4);
+    ctx.moveTo(sx + tw / 2, baseY - th + 12);
+    ctx.lineTo(sx + tw / 2 + 22, baseY - th - 2);
+    ctx.moveTo(sx + tw / 2 - 2, baseY - th + 30);
+    ctx.lineTo(sx + tw / 2 + 14, baseY - th + 22);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+
+    // Copa redonda y frondosa: varios círculos verdes combinados
     const cTop = finalTree.canopyTop;
     const cBot = finalTree.canopyBot;
-    const cw = finalTree.canopyW;
-    const ch = cBot - cTop;
-    const cx = sx;
-    const cy = (cTop + cBot) / 2;
+    const cw   = finalTree.canopyW;
+    const ch   = cBot - cTop;
+    const cx   = sx;
+    const cy   = (cTop + cBot) / 2;
 
-    // Sombra (zona oscura izquierda)
+    // Sombras (capa de fondo, más oscura, ligeramente más grande)
     ctx.fillStyle = COLORS.leavesDark;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, cw / 2, ch / 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Recorte de luz lateral derecha
-    ctx.fillStyle = COLORS.leaves;
-    ctx.beginPath();
-    ctx.ellipse(cx + 4, cy + 6, cw / 2 - 4, ch / 2 - 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Punta más oscura
-    ctx.fillStyle = COLORS.leavesDark;
-    ctx.beginPath();
-    ctx.ellipse(cx, cTop + 12, cw / 2 - 4, 12, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Textura: rayas verticales para evocar el ciprés
-    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
-    ctx.lineWidth = 0.6;
-    for (let i = -3; i <= 3; i++) {
-      const xLine = cx + i * (cw / 8);
+    const dark = [
+      [   0, 6, cw / 2,        ch / 2 + 2],
+      [-cw*0.35, 8,  cw * 0.36, ch * 0.40],
+      [ cw*0.35, 8,  cw * 0.36, ch * 0.40],
+      [-cw*0.20, -ch*0.30, cw * 0.36, ch * 0.36],
+      [ cw*0.20, -ch*0.34, cw * 0.32, ch * 0.34],
+    ];
+    dark.forEach(([dx, dy, rx, ry]) => {
       ctx.beginPath();
-      ctx.moveTo(xLine, cTop + 14);
-      ctx.lineTo(xLine, cBot - 10);
-      ctx.stroke();
-    }
+      ctx.ellipse(cx + dx, cy + dy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
 
-    // Plataforma (copa): pequeña marca verde más clara donde Blas debe caer
+    // Capa verde principal
+    ctx.fillStyle = COLORS.leaves;
+    const mid = [
+      [   0,  2,  cw / 2 - 6,    ch / 2 - 4],
+      [-cw*0.30, 4,  cw * 0.30, ch * 0.34],
+      [ cw*0.30, 4,  cw * 0.30, ch * 0.34],
+      [-cw*0.18, -ch*0.30, cw * 0.30, ch * 0.30],
+      [ cw*0.22, -ch*0.32, cw * 0.28, ch * 0.30],
+      [   0, -ch*0.40, cw * 0.28, ch * 0.24],
+    ];
+    mid.forEach(([dx, dy, rx, ry]) => {
+      ctx.beginPath();
+      ctx.ellipse(cx + dx, cy + dy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Brillos (luz arriba/izquierda)
     ctx.fillStyle = lighten(COLORS.leaves, 0.25);
-    ctx.fillRect(cx - finalTree.platformW / 2, finalTree.platformY, finalTree.platformW, 3);
+    [
+      [-cw*0.18, -ch*0.30, cw * 0.18, ch * 0.18],
+      [ cw*0.05, -ch*0.40, cw * 0.16, ch * 0.16],
+      [-cw*0.35,  ch*0.05, cw * 0.14, ch * 0.14],
+    ].forEach(([dx, dy, rx, ry]) => {
+      ctx.beginPath();
+      ctx.ellipse(cx + dx, cy + dy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Algunas hojas palmadas dibujadas como detalle (manchas estrelladas)
+    ctx.fillStyle = darken(COLORS.leaves, 0.25);
+    const leaves = [
+      [-cw*0.30,  ch*0.05],
+      [ cw*0.28, -ch*0.10],
+      [-cw*0.05, -ch*0.35],
+      [ cw*0.10,  ch*0.20],
+      [-cw*0.20,  ch*0.30],
+    ];
+    leaves.forEach(([dx, dy]) => {
+      drawPalmateLeaf(cx + dx, cy + dy, 5);
+    });
 
     // Flecha intermitente apuntando a la copa durante final/jump
     if (phase === 'final' || phase === 'jump') {
@@ -1280,6 +1387,28 @@
         ctx.fillText('▼', cx, finalTree.platformY - 6);
       }
     }
+  }
+
+  // Hoja palmada (5 lóbulos) usada como detalle decorativo en la copa
+  function drawPalmateLeaf(cx, cy, r) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.sin(cx + cy) * 0.6);
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+      const tipX = Math.cos(a) * r;
+      const tipY = Math.sin(a) * r;
+      const sideA = a + Math.PI / 5;
+      const sideX = Math.cos(sideA) * r * 0.45;
+      const sideY = Math.sin(sideA) * r * 0.45;
+      if (i === 0) ctx.moveTo(tipX, tipY);
+      else         ctx.lineTo(tipX, tipY);
+      ctx.lineTo(sideX, sideY);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 
   // Aviso "¡Salta lo más alto que puedas!" mientras se está eligiendo fuerza
@@ -1829,6 +1958,10 @@
   function stop() {
     running = false;
     cancelAnimationFrame(raf);
+    // Limpiar clases UI por si quedó la de "is-charge"
+    const stage = document.getElementById('gameStage');
+    if (stage) stage.classList.remove('is-charge');
+    hideChoiceButtons();
   }
 
   window.Level1 = { start, stop };
