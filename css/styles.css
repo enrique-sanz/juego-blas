@@ -18,10 +18,10 @@ html, body {
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  /* Declara el esquema de color para que los navegadores móviles
-     (Samsung Internet, Chrome Android) no apliquen su modo oscuro
-     automático sobre los colores del juego. */
-  color-scheme: light dark;
+  /* El juego ya está diseñado con paleta oscura. Con "only dark" le
+     decimos a Samsung Internet y Chrome Android que NO inviertan ni
+     transformen colores: la página ya es oscura, no hay que tocarla. */
+  color-scheme: only dark;
 }
 
 #app {
