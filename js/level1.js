@@ -8,8 +8,10 @@
   'use strict';
 
   // -------------------- Configuración --------------------
-  const VW = 480;          // ancho lógico (resolución interna)
+  const VW = 480;          // ancho lógico
   const VH = 270;          // alto lógico
+  const RENDER_SCALE = 3;  // multiplicador interno del canvas (más nitidez)
+  const SPRITE_SCALE = 4;  // los sprites se prerrenderizan a esta resolución para que no pixelen
   const GROUND_Y = 220;    // y del suelo
   const GRAVITY = 1500;    // px/s^2
   const JUMP_VY = -560;    // velocidad inicial salto
@@ -101,17 +103,18 @@
   }
 
   function buildFaceSprite(img) {
-    // Recortamos un círculo de la cara desde la imagen original.
-    // Los valores son aproximados a la imagen de referencia (1024x1536).
-    const size = 22; // tamaño en píxeles lógicos
+    // Pre-renderizamos a alta resolución para que se vea nítido cuando
+    // se dibuje a tamaño lógico (~22px) en pantalla.
+    const size = 22 * SPRITE_SCALE;
     const c = document.createElement('canvas');
     c.width = size; c.height = size;
     const cx = c.getContext('2d');
 
-    cx.imageSmoothingEnabled = false;
+    cx.imageSmoothingEnabled = true;
+    cx.imageSmoothingQuality = 'high';
     cx.save();
     cx.beginPath();
-    cx.arc(size/2, size/2, size/2 - 1, 0, Math.PI*2);
+    cx.arc(size/2, size/2, size/2 - 2, 0, Math.PI*2);
     cx.closePath();
     cx.clip();
 
@@ -124,22 +127,45 @@
     cx.restore();
 
     // Borde
-    cx.lineWidth = 1.5;
+    cx.lineWidth = SPRITE_SCALE * 0.6;
     cx.strokeStyle = '#000';
     cx.beginPath();
-    cx.arc(size/2, size/2, size/2 - 1, 0, Math.PI*2);
+    cx.arc(size/2, size/2, size/2 - 2, 0, Math.PI*2);
     cx.stroke();
 
     return c;
   }
 
   function buildBuzonSprite(img) {
-    const w = 22, h = 34;
+    // Pre-renderizamos a alta resolución y quitamos el fondo blanco del PNG.
+    const w = 22 * SPRITE_SCALE;
+    const h = 34 * SPRITE_SCALE;
+    // Recortamos la imagen original con un margen para descartar bordes
+    // y el fondo blanco circundante de la foto del buzón.
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
     const cx = c.getContext('2d');
-    cx.imageSmoothingEnabled = false;
+    cx.imageSmoothingEnabled = true;
+    cx.imageSmoothingQuality = 'high';
     cx.drawImage(img, 0, 0, img.width, img.height, 0, 0, w, h);
+
+    // Chroma key: pone alpha=0 a los píxeles blancos (fondo del PNG)
+    // y suaviza los bordes que están entre el amarillo y el blanco.
+    const data = cx.getImageData(0, 0, w, h);
+    const px = data.data;
+    for (let i = 0; i < px.length; i += 4) {
+      const r = px[i], g = px[i+1], b = px[i+2];
+      const minRGB = Math.min(r, g, b);
+      const maxRGB = Math.max(r, g, b);
+      // Blanco / muy claro y poco saturado → fondo
+      if (minRGB > 230 && maxRGB - minRGB < 20) {
+        px[i+3] = 0;
+      } else if (minRGB > 210 && maxRGB - minRGB < 25) {
+        // borde antialiased: degradar alpha
+        px[i+3] = Math.max(0, px[i+3] - 180);
+      }
+    }
+    cx.putImageData(data, 0, 0);
     return c;
   }
 
@@ -474,7 +500,11 @@
 
   // -------------------- Render --------------------
   function draw() {
-    ctx.imageSmoothingEnabled = false;
+    // Aplicamos la escala del backing-buffer al espacio lógico (VWxVH)
+    const s = ctx._scaleFactor || RENDER_SCALE;
+    ctx.setTransform(s, 0, 0, s, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     // Cielo
     ctx.fillStyle = COLORS.sky;
@@ -758,7 +788,7 @@
       const sx = b.worldX - cameraX;
       if (sx < -30 || sx > VW + 30) return;
       if (buzonSprite) {
-        ctx.drawImage(buzonSprite, Math.round(sx - b.w / 2), Math.round(b.y));
+        ctx.drawImage(buzonSprite, sx - b.w / 2, b.y, b.w, b.h);
       } else {
         // Fallback dibujado
         ctx.fillStyle = COLORS.yellow;
@@ -838,7 +868,7 @@
 
     // Cabeza (cara de Blas dentro de un círculo)
     if (faceSprite) {
-      ctx.drawImage(faceSprite, x + 2, y - 4);
+      ctx.drawImage(faceSprite, x + 2, y - 4, 22, 22);
     } else {
       // Fallback
       ctx.fillStyle = COLORS.skin;
@@ -885,11 +915,14 @@
     const stage = document.getElementById('gameStage');
     const w = stage.clientWidth;
     const h = stage.clientHeight;
-    // Mantener relación interna fija (480x270) escalada al stage
-    canvas.width = VW;
-    canvas.height = VH;
+    // Resolución interna ampliada por RENDER_SCALE para más nitidez.
+    // El sistema lógico sigue siendo VWxVH (el ctx.scale lo aplica draw()).
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = VW * RENDER_SCALE * dpr;
+    canvas.height = VH * RENDER_SCALE * dpr;
     canvas.style.width = w + 'px';
     canvas.style.height = h + 'px';
+    ctx._scaleFactor = RENDER_SCALE * dpr;
   }
 
   function checkOrientation() {
