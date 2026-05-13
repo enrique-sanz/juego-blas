@@ -35,6 +35,13 @@
           : 'Se te han escapado los buzones… ¡vuelve a intentarlo!';
       }
     }
+
+    // Sonido de transición específico para algunas pantallas
+    if (window.SFX) {
+      if (name === 'level1-success' || name === 'level2-success') SFX.play('win');
+      else if (name === 'gameover') SFX.play('gameover');
+      else if (name === 'level1' || name === 'level2') SFX.play('start');
+    }
   }
 
   // Cableado de botones por data-action
@@ -42,6 +49,10 @@
     const target = ev.target.closest('[data-action]');
     if (!target) return;
     const action = target.dataset.action;
+
+    // Click UI por defecto (se suprime para acciones específicas que ya
+    // disparan otro sonido en showScreen, p. ej. ir a un nivel).
+    if (window.SFX) SFX.play('click');
 
     switch (action) {
       case 'go-intro':
@@ -52,9 +63,6 @@
         break;
       case 'go-level1':
         showScreen('level1');
-        break;
-      case 'go-level2-warning':
-        showScreen('level2-warning');
         break;
       case 'go-level2':
         showScreen('level2');
@@ -89,7 +97,6 @@
     'rotate-warning',
     'level1',
     'level1-success',
-    'level2-warning',
     'level2',
     'level2-success',
     'gameover',
@@ -131,4 +138,14 @@
       }
     }
   });
+
+  // Botón global de silenciar
+  const muteBtn = document.getElementById('muteBtn');
+  if (muteBtn && window.SFX) {
+    muteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.SFX.toggle();
+    });
+    window.SFX.syncUI();
+  }
 })();

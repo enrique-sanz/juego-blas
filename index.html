@@ -71,7 +71,6 @@
         <!-- HUD -->
         <div class="hud">
           <div class="hud__item hud__score">PUNTOS <span id="hudScore">0</span></div>
-          <div class="hud__item hud__time">TIEMPO <span id="hudTime">60</span></div>
           <div class="hud__item hud__lives">VIDAS <span id="hudLives">♥♥♥</span></div>
         </div>
 
@@ -110,6 +109,7 @@
         <p class="success__big">
           Has clavado el salto al platanero y has contado el chiste a todo el barrio.
         </p>
+        <p class="success__note">(Acuérdate de poner el móvil en <strong>vertical</strong> para el siguiente reto)</p>
         <div class="reto-card">
           <p class="reto-card__title">SIGUIENTE RETO</p>
           <p class="reto-card__lead">
@@ -123,7 +123,7 @@
             <li>Llega a <strong>1000 puntos</strong> antes de que se acabe el tiempo.</li>
           </ul>
         </div>
-        <button class="btn btn--primary" data-action="go-level2-warning">¡A COMER!</button>
+        <button class="btn btn--primary" data-action="go-level2">¡A COMER!</button>
       </div>
     </section>
 
@@ -133,24 +133,6 @@
         <h2 class="subtitle subtitle--ko">GAME OVER</h2>
         <p id="gameoverMsg">Se te han escapado los buzones… ¡vuelve a intentarlo!</p>
         <button class="btn btn--primary" data-action="retry-current">REINTENTAR</button>
-      </div>
-    </section>
-
-    <!-- AVISO VERTICAL para reto 2 -->
-    <section class="screen screen--rotate" data-screen="level2-warning">
-      <div class="rotate__inner">
-        <div class="rotate__icon rotate__icon--portrait" aria-hidden="true">
-          <svg viewBox="0 0 100 100" width="120" height="120">
-            <rect x="30" y="10" width="40" height="80" rx="6" fill="none" stroke="#ffd200" stroke-width="4"/>
-            <circle cx="50" cy="80" r="3" fill="#ffd200"/>
-          </svg>
-        </div>
-        <h2 class="subtitle">PON EL MÓVIL VERTICAL</h2>
-        <p class="rotate__text">
-          Este reto se juega <strong>en vertical</strong>.<br/>
-          Coloca tu móvil de pie y pulsa cuando estés listo.
-        </p>
-        <button class="btn btn--primary" data-action="go-level2">¡A COMER!</button>
       </div>
     </section>
 
@@ -204,12 +186,15 @@
     <button class="debug-bar__btn" data-debug-screen="rotate-warning" title="Girar horizontal">3</button>
     <button class="debug-bar__btn" data-debug-screen="level1"         title="Reto 1">4</button>
     <button class="debug-bar__btn" data-debug-screen="level1-success" title="Enhorabuena 1">5</button>
-    <button class="debug-bar__btn" data-debug-screen="level2-warning" title="Girar vertical">6</button>
-    <button class="debug-bar__btn" data-debug-screen="level2"         title="Reto 2">7</button>
-    <button class="debug-bar__btn" data-debug-screen="level2-success" title="Final">8</button>
-    <button class="debug-bar__btn" data-debug-screen="gameover"       title="Game Over">9</button>
+    <button class="debug-bar__btn" data-debug-screen="level2"         title="Reto 2">6</button>
+    <button class="debug-bar__btn" data-debug-screen="level2-success" title="Final">7</button>
+    <button class="debug-bar__btn" data-debug-screen="gameover"       title="Game Over">8</button>
   </div>
 
+  <!-- Botón global de silenciar audio -->
+  <button class="mute-btn" id="muteBtn" type="button" data-mute aria-label="Silenciar" aria-pressed="false">🔊</button>
+
+  <script src="js/sfx.js"></script>
   <script src="js/level1.js"></script>
   <script src="js/level2.js"></script>
   <script src="js/main.js"></script>

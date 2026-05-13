@@ -10,7 +10,7 @@
   // -------------------- Configuración --------------------
   const VW = 360;             // ancho lógico (vertical)
   const VH = 640;             // alto lógico
-  const RENDER_SCALE = 4;
+  const RENDER_SCALE = 2;     // suficiente para nitidez sin ahogar al móvil
   const GRAVITY = 600;        // px/s²
   const PLAYER_SPEED = 260;   // px/s
   const TIME_LIMIT = 60;      // segundos
@@ -39,6 +39,14 @@
     { emoji: '🥒', points: -75, type: 'veg' },
     { emoji: '🌶️', points: -120, type: 'veg' },
   ];
+
+  // Pools por tipo (cacheados) para no filtrar en cada spawn
+  const POOL_MEAT  = ITEMS.filter((i) => i.type === 'meat');
+  const POOL_DRINK = ITEMS.filter((i) => i.type === 'drink');
+  const POOL_VEG   = ITEMS.filter((i) => i.type === 'veg');
+
+  // Fuente para los emojis (la fija una sola vez por frame)
+  const EMOJI_FONT = '34px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 
   // -------------------- Estado --------------------
   let canvas, ctx;
@@ -153,15 +161,14 @@
   }
 
   function spawnItem() {
-    // Probabilidades: 50% carne, 25% bebida, 25% verdura
+    // Probabilidades: 35% carne, 25% bebida, 40% verdura
     const r = Math.random();
     let pool;
-    if (r < 0.5)       pool = ITEMS.filter((i) => i.type === 'meat');
-    else if (r < 0.75) pool = ITEMS.filter((i) => i.type === 'drink');
-    else               pool = ITEMS.filter((i) => i.type === 'veg');
+    if (r < 0.35)      pool = POOL_MEAT;
+    else if (r < 0.60) pool = POOL_DRINK;
+    else               pool = POOL_VEG;
     const proto = pool[randInt(0, pool.length - 1)];
 
-    // Velocidades iniciales: pequeño impulso horizontal para variar
     const vx = rand(-110, 110);
     const vy = rand(20, 80);
 
@@ -172,12 +179,11 @@
       x: waiter.x + rand(-10, 10),
       y: waiter.y + 30,
       vx, vy,
-      rot: 0,
-      rotV: rand(-3, 3),
       w: 44, h: 44,
       alive: true,
     });
     waiter.armSwing = 1;
+    window.SFX && SFX.play('throw');
   }
 
   function update(dt) {
@@ -202,9 +208,9 @@
     if (spawnTimer <= 0) {
       spawnItem();
       const elapsed = TIME_LIMIT - timeLeft;
-      // Cadencia: empieza en 1.0s, baja hasta ~0.45s al final
-      const next = Math.max(0.45, 1.0 - elapsed * 0.012);
-      spawnTimer = next + rand(-0.1, 0.15);
+      // Cadencia: empieza ~0.55s, baja hasta ~0.22s al final
+      const next = Math.max(0.22, 0.55 - elapsed * 0.012);
+      spawnTimer = next + rand(-0.05, 0.08);
     }
 
     // Animación del brazo del camarero
@@ -225,7 +231,6 @@
       it.vy += GRAVITY * dt;
       it.x += it.vx * dt;
       it.y += it.vy * dt;
-      it.rot += it.rotV * dt;
       // Rebote suave en paredes laterales
       if (it.x < 4 && it.vx < 0) { it.x = 4; it.vx = -it.vx * 0.6; }
       if (it.x + it.w > VW - 4 && it.vx > 0) { it.x = VW - 4 - it.w; it.vx = -it.vx * 0.6; }
@@ -251,12 +256,21 @@
             x: it.x + iw / 2, y: it.y, text: '¡PUAJ! ' + it.points,
             color: '#ff6b6b', t: 1.0,
           });
+          window.SFX && SFX.play('eatBad');
+        } else if (it.type === 'drink') {
+          score += it.points;
+          popups.push({
+            x: it.x + iw / 2, y: it.y, text: '+' + it.points,
+            color: '#7eff7e', t: 1.0,
+          });
+          window.SFX && SFX.play('eatDrink');
         } else {
           score += it.points;
           popups.push({
             x: it.x + iw / 2, y: it.y, text: '+' + it.points,
             color: '#7eff7e', t: 1.0,
           });
+          window.SFX && SFX.play('eatGood');
         }
         it.alive = false;
         updateHUD();
@@ -327,29 +341,32 @@
   }
 
   function drawBackground() {
-    // Paredes del bar: marrón cálido con un panel de madera
+    // Pared del bar: tonos claros y cálidos (crema → ocre suave)
     const grad = ctx.createLinearGradient(0, 0, 0, VH);
-    grad.addColorStop(0, '#5a2f10');
-    grad.addColorStop(0.6, '#6e3a18');
-    grad.addColorStop(1, '#3a1c08');
+    grad.addColorStop(0, '#fff4dc');
+    grad.addColorStop(0.55, '#fbe4b6');
+    grad.addColorStop(1, '#e9c98a');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, VW, VH);
 
-    // Barra del camarero (cinturón horizontal)
-    ctx.fillStyle = '#3a1c08';
-    ctx.fillRect(0, 130, VW, 14);
-    ctx.fillStyle = '#7a4a1c';
-    ctx.fillRect(0, 128, VW, 4);
-    // Tablones verticales sobre la barra
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    for (let x = 16; x < VW; x += 40) {
+    // Listones verticales muy suaves para dar textura
+    ctx.fillStyle = 'rgba(160, 110, 60, 0.10)';
+    for (let x = 18; x < VW; x += 38) {
       ctx.fillRect(x, 0, 1, 130);
     }
 
-    // Cartel "CASABLANCA" en una banderola arriba
-    ctx.fillStyle = '#aa1f1f';
+    // Repisa de la barra (madera clara)
+    ctx.fillStyle = '#c79a64';
+    ctx.fillRect(0, 130, VW, 14);
+    ctx.fillStyle = '#a8783e';
+    ctx.fillRect(0, 144, VW, 2);
+    ctx.fillStyle = '#e6c39a';
+    ctx.fillRect(0, 128, VW, 3);
+
+    // Cartel "CASABLANCA" en una banderola
+    ctx.fillStyle = '#c4242c';
     ctx.fillRect(50, 12, VW - 100, 26);
-    ctx.strokeStyle = '#5a0a0a';
+    ctx.strokeStyle = '#8a1218';
     ctx.lineWidth = 2;
     ctx.strokeRect(50, 12, VW - 100, 26);
     ctx.fillStyle = '#fff';
@@ -358,14 +375,14 @@
     ctx.textBaseline = 'middle';
     ctx.fillText('CASABLANCA', VW / 2, 25);
 
-    // Suelo: línea inferior
-    ctx.fillStyle = '#2c1408';
+    // Suelo claro abajo
+    ctx.fillStyle = '#b88a55';
     ctx.fillRect(0, VH - 8, VW, 8);
 
-    // Mesa (rectángulo en el que se apoya Blas)
-    ctx.fillStyle = '#8a5a2a';
+    // Mesa donde se apoya Blas
+    ctx.fillStyle = '#c79a64';
     ctx.fillRect(player.x - 24, player.y + player.h - 4, player.w + 48, 16);
-    ctx.fillStyle = '#5a3416';
+    ctx.fillStyle = '#a8783e';
     ctx.fillRect(player.x - 24, player.y + player.h + 10, player.w + 48, 2);
   }
 
@@ -385,39 +402,38 @@
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
     ctx.fillRect(x - 22, y - 4, 44, 3);
 
-    // Cabeza
-    ctx.fillStyle = '#caa07a'; // piel morena
+    // Cabeza (piel oscura — muy moreno)
+    const SKIN     = '#5a3318';
+    const SKIN_DARK = '#3a1f0c';
+    ctx.fillStyle = SKIN;
     ctx.beginPath();
     ctx.ellipse(x, y - 18, 13, 15, 0, 0, Math.PI * 2);
     ctx.fill();
     // Sombra lateral
-    ctx.fillStyle = '#9a7050';
+    ctx.fillStyle = SKIN_DARK;
     ctx.beginPath();
     ctx.ellipse(x + 5, y - 16, 5, 11, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Pelo oscuro
-    ctx.fillStyle = '#2a1a10';
+    // Pelo oscuro asomando por delante de la frente
+    ctx.fillStyle = '#1a0a05';
     ctx.fillRect(x - 12, y - 28, 24, 6);
     ctx.fillRect(x - 14, y - 26, 4, 8);
     ctx.fillRect(x + 10, y - 26, 4, 8);
 
     // Sombrero panamá (paja clara con banda negra)
     ctx.fillStyle = '#f0d9a8';
-    // Copa
     ctx.beginPath();
     ctx.ellipse(x, y - 30, 14, 8, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Ala (más ancha)
     ctx.fillStyle = '#e6c98c';
     ctx.beginPath();
     ctx.ellipse(x, y - 25, 22, 4, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Banda negra
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(x - 13, y - 29, 26, 3);
 
-    // Ojos
+    // Ojos (más blancos sobre la piel oscura)
     ctx.fillStyle = '#fff';
     ctx.fillRect(x - 5, y - 19, 3, 3);
     ctx.fillRect(x + 2, y - 19, 3, 3);
@@ -428,18 +444,18 @@
     ctx.fillRect(x - 6, y - 21, 4, 1);
     ctx.fillRect(x + 2, y - 21, 4, 1);
 
-    // Bigote negro grande (estilo "señor colombiano")
-    ctx.fillStyle = '#1a1a1a';
-    ctx.beginPath();
-    ctx.ellipse(x, y - 12, 9, 3, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(x - 9, y - 13, 18, 2);
-
-    // Sonrisa bajo el bigote
-    ctx.strokeStyle = '#5a2a2a';
+    // Sonrisa amplia (sin bigote)
+    ctx.strokeStyle = '#1a0a05';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(x, y - 8, 4, 0.1 * Math.PI, 0.9 * Math.PI);
+    ctx.arc(x, y - 11, 5, 0.1 * Math.PI, 0.9 * Math.PI);
+    ctx.stroke();
+    // Dientes (línea blanca dentro de la sonrisa)
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x - 4, y - 9);
+    ctx.lineTo(x + 4, y - 9);
     ctx.stroke();
 
     // Brazo derecho (lanzando): se mueve según armSwing
@@ -450,14 +466,14 @@
     ctx.rotate(armAngle);
     ctx.fillStyle = '#fcd116';
     ctx.fillRect(0, -3, 20, 6);
-    ctx.fillStyle = '#caa07a';
+    ctx.fillStyle = SKIN;
     ctx.fillRect(20, -3, 5, 6);
     ctx.restore();
 
     // Brazo izquierdo apoyado
     ctx.fillStyle = '#fcd116';
     ctx.fillRect(x - 32, y + 4, 12, 6);
-    ctx.fillStyle = '#caa07a';
+    ctx.fillStyle = SKIN;
     ctx.fillRect(x - 36, y + 4, 5, 6);
 
     // Bandeja en mano izquierda
@@ -468,23 +484,15 @@
   }
 
   function drawItems() {
-    items.forEach((it) => {
-      if (!it.alive) return;
-      ctx.save();
-      ctx.translate(it.x + it.w / 2, it.y + it.h / 2);
-      ctx.rotate(it.rot);
-      // Sombra circular suave detrás del emoji
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.beginPath();
-      ctx.arc(2, 4, it.w * 0.45, 0, Math.PI * 2);
-      ctx.fill();
-      // Emoji
-      ctx.font = '34px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(it.emoji, 0, 0);
-      ctx.restore();
-    });
+    if (!items.length) return;
+    ctx.font = EMOJI_FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (!it.alive) continue;
+      ctx.fillText(it.emoji, it.x + it.w / 2, it.y + it.h / 2);
+    }
   }
 
   function drawPlayer() {
@@ -594,7 +602,9 @@
     const stage = document.getElementById('gameStage2');
     const w = stage.clientWidth;
     const h = stage.clientHeight;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // dpr limitado a 1.5 para móviles. Buscamos un canvas no más ancho
+    // que ~2× el tamaño físico mostrado, suficiente para nitidez.
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     canvas.width = VW * RENDER_SCALE * dpr;
     canvas.height = VH * RENDER_SCALE * dpr;
     canvas.style.width = w + 'px';

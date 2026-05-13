@@ -459,6 +459,7 @@
     const reply = which === 'pio' ? 'No, mucha sombra' : '¡No, PIO PIO!';
     player.speech = { text: reply, t: 99 };
     hideChoiceButtons();
+    window.SFX && SFX.play('select');
   }
 
   function doJump() {
@@ -466,16 +467,17 @@
     if (phase === 'final') {
       // Fija la fuerza con la posición actual del indicador y arranca la carrerilla
       selectedForce = meterPos;
-      // Objetivo de carrerilla: justo al lado izquierdo del tronco
       const treeScreenX = finalTree.worldX - cameraX;
       runUpTargetX = treeScreenX - finalTree.trunkW / 2 - player.w - 2;
       reachedTree = false;
       phase = 'carrerilla';
+      window.SFX && SFX.play('charge');
       return;
     }
     if (phase === 'run' && player.onGround) {
       player.vy = JUMP_VY;
       player.onGround = false;
+      window.SFX && SFX.play('jump');
     }
   }
 
@@ -494,6 +496,7 @@
       alive: true,
       spin: 0,
     });
+    window.SFX && SFX.play('shoot');
   }
 
   // -------------------- Lógica --------------------
@@ -559,6 +562,7 @@
         player.vy = vy;
         player.onGround = false;
         phase = 'jump';
+        window.SFX && SFX.play('bigJump');
       }
     } else if (phase === 'jump') {
       // Al llegar al pico decidimos por la fuerza elegida: si el jugador
@@ -579,6 +583,7 @@
             text: '¿Qué hace un pájaro de 100kg en una rama?',
             t: 99,
           };
+          window.SFX && SFX.play('pio');
           showChoiceButtons();
         }
       }
@@ -646,6 +651,7 @@
       phase = 'fall_down';
       fallDownTimer = 0;
       player.vy = 0;
+      window.SFX && SFX.play('fall');
     }
 
     // Invulnerabilidad
@@ -743,6 +749,7 @@
           if (/paquete/i.test(n.phrase)) {
             player.speech = { text: BLAS_KILL_PHRASE, t: 1.6 };
           }
+          window.SFX && SFX.play('hit');
           updateHUD();
         }
       });
@@ -768,6 +775,7 @@
         popups.push({ worldX: b.worldX, y: b.y - 8, text: '+200', t: 0.9 });
         player.vy = STOMP_VY;
         player.onGround = false;
+        window.SFX && SFX.play('stomp');
         updateHUD();
       } else {
         if (invuln <= 0) {
@@ -778,6 +786,7 @@
   }
 
   function loseLife() {
+    window.SFX && SFX.play('hurt');
     // En modo debug no se pierde vida (sólo rebota un poco para feedback)
     if (window.debugMode) {
       invuln = 1.0;
@@ -1093,9 +1102,11 @@
   // Dibuja un bocadillo de cómic con cola hacia abajo apuntando al hablante.
   // (cx, cy) = posición del hablante (la cola apunta ahí).
   // variant: 'normal' (blanco) | 'angry' (rojo)
-  function drawSpeechBubble(cx, cy, text, alpha, variant) {
+  // opts: { noTail: true } para esconder la cola (uso de cartel central)
+  function drawSpeechBubble(cx, cy, text, alpha, variant, opts) {
     if (alpha <= 0) return;
     const angry = variant === 'angry';
+    const forceNoTail = !!(opts && opts.noTail);
     const bg     = angry ? '#d11a1a' : '#fff';
     const fg     = angry ? '#ffffff' : '#000000';
     const border = angry ? '#5a0a0a' : '#000000';
@@ -1116,9 +1127,9 @@
     if (bx < 4) bx = 4;
     if (bx + w > VW - 4) bx = VW - 4 - w;
     let by = cy - h - 8;
-    // Si el hablante está muy arriba (como Blas en la copa del ciprés),
+    // Si el hablante está muy arriba (como Blas en la copa del platanero),
     // pegamos el bocadillo al top y ocultamos la cola.
-    let showTail = true;
+    let showTail = !forceNoTail;
     if (by < 4) {
       by = 4;
       showTail = false;
@@ -1809,10 +1820,22 @@
       }
     }
 
-    // Bocadillo de Blas (no parpadea aunque invuln esté activo)
+    // Bocadillo de Blas. En la copa del platanero (win_dialog) lo
+    // sacamos centrado en pantalla como un cartel, sin cola.
     if (player.speech.t > 0) {
       const a = Math.min(1, player.speech.t * 1.5);
-      drawSpeechBubble(x + player.w / 2, y - 6, player.speech.text, a, 'normal');
+      if (phase === 'win_dialog') {
+        drawSpeechBubble(
+          VW / 2,
+          VH / 2 + 16,
+          player.speech.text,
+          a,
+          'normal',
+          { noTail: true }
+        );
+      } else {
+        drawSpeechBubble(x + player.w / 2, y - 6, player.speech.text, a, 'normal');
+      }
     }
   }
 
