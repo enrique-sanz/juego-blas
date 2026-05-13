@@ -19,7 +19,7 @@
   const PHASE_CONTROL  = 3.0;      // tiempo para mover portero / mantener pulsado
   const PHASE_FLIGHT_D = 0.95;     // vuelo balón en defensa (Madrid chuta)
   const PHASE_FLIGHT_A = 0.85;     // vuelo balón en ataque (Blas chuta)
-  const PHASE_RESULT   = 1.7;
+  const PHASE_RESULT   = 2.7;
   const KEEPER_SPEED   = 1.05;     // mover portero (0..1 por segundo)
   const SAVE_TOLERANCE = 0.17;     // |tiro − portero| <= esto → parada
 
@@ -95,6 +95,10 @@
   let powerValue = 0;              // 0..1 valor de la fuerza al soltar
   let isAttPressing = false;       // dedo abajo
   let powerAutoReleased = false;
+
+  // Resultado precalculado del vuelo (para que el balón cruce la línea
+  // cuando es gol y se quede en la línea/portero cuando es parada).
+  let flightIsGoal = false;
 
   // -------------------- Utilidades --------------------
   function rand(min, max) { return min + Math.random() * (max - min); }
@@ -440,6 +444,7 @@
     } else {
       madShotTarget = rand(0.1, 0.9);
     }
+    flightIsGoal = !isBrahim && Math.abs(madShotTarget - keeper) > SAVE_TOLERANCE;
     shooterEl.classList.add('is-kick');
     window.SFX && SFX.play('bigJump');
   }
@@ -448,6 +453,23 @@
     phase = 'flight';
     phaseT = PHASE_FLIGHT_A;
     powerValue = powerNow;
+    const isLast = (blasShotIdx === SHOTS_REG - 1);
+    const tied = (scoreBlas === scoreMad);
+    if (isLast && tied) {
+      // Último penalti de Blas a empate: gol garantizado a la esquina
+      // derecha, ignorando puntería y potencia del jugador.
+      flightIsGoal = true;
+      aimNx = 0.92;
+      aimNy = 0.20;
+      paintAim();
+      powerValue = 0.5; // neutraliza las zonas "fuerte" y "flojo"
+    } else if (powerValue >= POWER_STRONG_MIN) {
+      flightIsGoal = false;
+    } else if (powerValue < POWER_WEAK_MAX) {
+      flightIsGoal = false;
+    } else {
+      flightIsGoal = true;
+    }
     hintEl && hintEl.classList.remove('is-visible');
     shooterEl.classList.add('is-kick');
     window.SFX && SFX.play('bigJump');
@@ -547,7 +569,7 @@
     } else {
       window.SFX && SFX.play('stomp');
       if (reason === 'high') {
-        setMessage('FUERA. CHUTASTE DEMASIADO FUERTE', 'l4-msg--bad');
+        setMessage("Ala!! Ca' la Jara!!", 'l4-msg--bad');
       } else if (reason === 'low') {
         setMessage('LA PARÓ COURTOIS. POCO FUERTE', 'l4-msg--bad');
       } else {
@@ -651,7 +673,9 @@
         const totalT = PHASE_FLIGHT_A;
         const progress = clamp(1 - phaseT / totalT, 0, 1);
         let targetX = goalLeft + aimNx * goalWidth;
-        let targetY = goalTop; // línea de gol
+        // Si es gol, el balón cruza la línea y se queda a mitad del arco.
+        // Si para Courtois (flojo), se queda en la línea.
+        let targetY = flightIsGoal ? (goalTop - goalHeight * 0.5) : goalTop;
         // Si fuerza alta: vuela por encima del larguero (sigue subiendo)
         if (powerValue >= POWER_STRONG_MIN) {
           targetY = goalTop - stageH * 0.18;
@@ -670,10 +694,11 @@
         phaseT -= dt;
         if (phaseT <= 0) decideOutcomeAttack();
       } else {
-        // Balón vuela del punto de penalti hacia la línea de gol
+        // Balón vuela del punto de penalti hacia la línea de gol; si entra,
+        // sigue hasta mitad del arco para que se vea claramente como gol.
         const progress = clamp(1 - phaseT / madFlightDur, 0, 1);
         const targetX = goalLeft + madShotTarget * goalWidth;
-        const targetY = goalTop;
+        const targetY = flightIsGoal ? (goalTop - goalHeight * 0.5) : goalTop;
         const x = lerp(spotX, targetX, progress);
         const arc = Math.sin(progress * Math.PI) * (stageH * 0.03);
         const y = lerp(spotY, targetY, progress) - arc;
