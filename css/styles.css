@@ -529,12 +529,12 @@ html, body {
 }
 .l2-player__upper {
   top: 0;
-  height: 64%;
+  height: 79%;
   background-position: top center;
 }
 .l2-player__lower {
   bottom: 0;
-  height: 36%;
+  height: 21%;
   background-position: bottom center;
   transform-origin: top center;
   will-change: transform;
