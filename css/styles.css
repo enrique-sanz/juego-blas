@@ -504,42 +504,44 @@ html, body {
   pointer-events: none;
 }
 
+/* Cabeza de Blas partida en dos a la altura de la boca para animar el
+   "masticar" cuando atrapa comida. */
 .l2-player {
-  bottom: 6%;
+  bottom: 4%;
   left: 0;
-  width: 86px;
-  height: 110px;
+  width: 96px;
+  aspect-ratio: 480 / 500;
   will-change: transform;
   pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  filter: drop-shadow(2px 4px 0 rgba(0,0,0,0.3));
 }
-.l2-player__face {
-  width: 78px;
-  height: auto;
-  display: block;
-  filter: drop-shadow(2px 4px 0 rgba(0,0,0,0.25));
-}
-.l2-player__body {
-  width: 62px;
-  height: 44px;
-  margin-top: -10px;
-  background: #ffd200;
-  border: 3px solid #c79c00;
-  border-radius: 6px 6px 4px 4px;
-  position: relative;
-}
-.l2-player__body::after {
-  content: '';
+.l2-player__upper,
+.l2-player__lower {
   position: absolute;
-  left: 50%;
-  top: 12px;
-  width: 16px;
-  height: 16px;
-  transform: translateX(-50%);
-  background: #003399;
-  border-radius: 4px;
+  left: 0; right: 0;
+  background-image: url('../assets/blas-face.png?v=20260513-9');
+  background-size: 100% auto;
+  background-repeat: no-repeat;
+}
+.l2-player__upper {
+  top: 0;
+  height: 64%;
+  background-position: top center;
+}
+.l2-player__lower {
+  bottom: 0;
+  height: 36%;
+  background-position: bottom center;
+  transform-origin: top center;
+  will-change: transform;
+}
+.l2-player.is-chew .l2-player__lower {
+  animation: l2chew 0.18s ease-out;
+}
+@keyframes l2chew {
+  0%   { transform: translateY(0) rotate(0); }
+  45%  { transform: translateY(8px) rotate(3deg); }
+  100% { transform: translateY(0) rotate(0); }
 }
 
 .l2-popups { inset: 0; pointer-events: none; }
@@ -558,6 +560,221 @@ html, body {
 @keyframes l2pop {
   0%   { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(-24px); }
+}
+
+/* === RETO 3: CANCHA DE PÁDEL =================================== */
+.l3-world {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #0e4f80 0%, #0c4274 60%, #0a345c 100%);
+  overflow: hidden;
+  font-family: inherit;
+}
+.l3-world > * { position: absolute; }
+
+.l3-court {
+  top: 14%;
+  bottom: 4%;
+  left: 4%;
+  right: 4%;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  border-radius: 3px;
+  pointer-events: none;
+}
+.l3-line {
+  left: 4%; right: 4%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+}
+.l3-line--top    { top: 30%; }
+.l3-line--bottom { top: 70%; }
+
+.l3-net {
+  left: 4%;
+  right: 4%;
+  top: 50%;
+  height: 10px;
+  transform: translateY(-50%);
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,0.95) 0 6px,
+      rgba(20,20,20,0.85) 6px 10px
+    );
+  border-top: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  pointer-events: none;
+}
+
+.l3-score {
+  top: 1.2%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  color: #ffd200;
+  text-shadow: 2px 2px 0 #000;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 6px 12px;
+  border: 2px solid #ffd200;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.l3-score__pair { font-size: 8px; color: #fff; letter-spacing: 1px; }
+.l3-score__pts  { font-size: 16px; min-width: 28px; text-align: center; }
+.l3-score__sep  { color: #fff; opacity: 0.6; }
+
+.l3-state {
+  top: 12.5%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #fff;
+  text-shadow: 2px 2px 0 #000;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.l3-state.is-deuce { color: #ffd200; }
+.l3-state.is-adv-a { color: #7eff7e; }
+.l3-state.is-adv-b { color: #ff7e7e; }
+
+.l3-paddle {
+  width: 140px;
+  height: 80px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0;
+  will-change: transform;
+  pointer-events: none;
+}
+.l3-paddle--top    { top: 16%; left: 0; }
+.l3-paddle--bottom { top: 74%; left: 0; }
+
+.l3-face {
+  position: relative;
+  width: 60px;
+  height: 80px;
+  background-size: cover;
+  background-position: center;
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.4));
+}
+.l3-face--lebron { background-image: url('../assets/lebron-face.png?v=20260513-11'); }
+.l3-face--galan  { background-image: url('../assets/galan-face.png?v=20260513-11'); }
+.l3-face--blas   { background-image: url('../assets/blas-face.png?v=20260513-11'); }
+.l3-face--bela   { background-image: url('../assets/belasteguin-face.png?v=20260513-11'); }
+
+/* Cada cara lleva su propia raqueta, inclinada hacia el campo */
+.l3-racket {
+  position: absolute;
+  width: 22px;
+  height: 30px;
+  background: radial-gradient(circle, #f4f4f4 0%, #d0d0d0 70%, #888 100%);
+  border: 2px solid #1a1a1a;
+  border-radius: 50%;
+  left: 50%;
+}
+.l3-racket::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 4px;
+  height: 14px;
+  background: #1a1a1a;
+  transform: translateX(-50%);
+}
+
+/* Pareja de arriba: la raqueta sale por debajo de cada cara (apunta al
+   campo) y el mango sube hacia la mano del jugador */
+.l3-paddle--top .l3-racket {
+  top: 100%;
+  margin-top: 2px;
+  transform: translateX(-50%) rotate(22deg);
+  transform-origin: top center;
+}
+.l3-paddle--top .l3-face:first-child .l3-racket {
+  transform: translateX(-50%) rotate(-22deg);
+}
+.l3-paddle--top .l3-racket::after {
+  bottom: 100%;        /* mango hacia arriba (hacia la cara) */
+  top: auto;
+}
+
+/* Pareja de abajo: la raqueta sale por encima de cada cara (apunta al
+   campo) y el mango baja hacia la mano del jugador */
+.l3-paddle--bottom .l3-racket {
+  bottom: 100%;
+  margin-bottom: 2px;
+  transform: translateX(-50%) rotate(-22deg);
+  transform-origin: bottom center;
+}
+.l3-paddle--bottom .l3-face:last-child .l3-racket {
+  transform: translateX(-50%) rotate(22deg);
+}
+.l3-paddle--bottom .l3-racket::after {
+  top: 100%;           /* mango hacia abajo (hacia la cara) */
+}
+
+.l3-ball {
+  left: 0; top: 0;
+  width: 32px;
+  height: 32px;
+  font-size: 30px;
+  line-height: 32px;
+  text-align: center;
+  pointer-events: none;
+  will-change: transform;
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.4));
+}
+
+/* Overlay grande "¡PUNTO DE PARTIDO!" */
+.l3-matchpoint {
+  top: 42%;
+  left: 50%;
+  width: 90%;
+  max-width: 320px;
+  transform: translate(-50%, -50%) scale(0.85);
+  font-family: 'Press Start 2P', monospace;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.78);
+  border: 4px solid #ffd200;
+  border-radius: 10px;
+  padding: 16px 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+  z-index: 5;
+}
+.l3-matchpoint.is-active {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  animation: l3mpPulse 0.6s ease-in-out infinite alternate;
+}
+.l3-matchpoint--rivals {
+  border-color: #ff5a5a;
+}
+.l3-matchpoint__big {
+  font-size: 16px;
+  color: #ffd200;
+  text-shadow: 3px 3px 0 #000;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.l3-matchpoint--rivals .l3-matchpoint__big { color: #ff7e7e; }
+.l3-matchpoint__sub {
+  font-size: 12px;
+  color: #fff;
+  text-shadow: 2px 2px 0 #000;
+  letter-spacing: 1px;
+}
+@keyframes l3mpPulse {
+  from { box-shadow: 0 0 0 0 rgba(255,210,0,0.0); }
+  to   { box-shadow: 0 0 0 4px rgba(255,210,0,0.35); }
 }
 
 /* Overlay rotación para vertical: cuando el móvil esté horizontal */

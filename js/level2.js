@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  const TIME_LIMIT = 60;
+  const TIME_LIMIT = 30;
   const SCORE_GOAL = 1000;
   const GRAVITY = 700;        // px/s²
   const PLAYER_SPEED = 320;   // px/s
@@ -19,7 +19,10 @@
     { emoji: '🍖', pts: 100 }, { emoji: '🍗', pts: 75 },
     { emoji: '🥩', pts: 120 }, { emoji: '🍔', pts: 110 },
     { emoji: '🌭', pts: 80  }, { emoji: '🥓', pts: 90 },
-    { emoji: '🍤', pts: 90 },
+    { emoji: '🍤', pts: 90  },
+    // El gorrino entero y la oreja de cerdo (tapa de toda la vida)
+    { emoji: '🐖', pts: 150 },
+    { emoji: '👂', pts: 130 },
   ];
   const POOL_DRINK = [
     { emoji: '🍺', pts: 75  }, { emoji: '🍷', pts: 75  },
@@ -170,6 +173,19 @@
     setTimeout(() => el.remove(), 900);
   }
 
+  // Animación de masticar: parte la cara en dos y baja la mandíbula
+  function chew() {
+    if (!playerEl) return;
+    playerEl.classList.remove('is-chew');
+    // Force reflow para reiniciar la animación si se encadenan bocados
+    void playerEl.offsetHeight;
+    playerEl.classList.add('is-chew');
+    clearTimeout(playerEl._chewTimer);
+    playerEl._chewTimer = setTimeout(() => {
+      playerEl.classList.remove('is-chew');
+    }, 200);
+  }
+
   function update(dt) {
     if (phase !== 'play') return;
 
@@ -193,13 +209,12 @@
       applyPlayerTransform();
     }
 
-    // Spawning
+    // Spawning a ritmo constante (con un pequeño jitter para que no
+    // se sienta robótico)
     spawnTimer -= dt;
     if (spawnTimer <= 0) {
       spawnItem();
-      const elapsed = TIME_LIMIT - timeLeft;
-      const next = Math.max(0.20, 0.55 - elapsed * 0.012);
-      spawnTimer = next + rand(-0.05, 0.08);
+      spawnTimer = 0.4 + rand(-0.06, 0.08);
     }
 
     // Físicas items
@@ -245,6 +260,7 @@
           popup('+' + it.pts, it.x, it.y, false);
           window.SFX && SFX.play('eatGood');
         }
+        chew();
         it.dead = true;
         it.el.remove();
         items.splice(i, 1);
@@ -253,8 +269,16 @@
         continue;
       }
 
-      // Cae al suelo: se descarta
+      // Cae al suelo: se descarta. Si era comida/bebida que sumaba,
+      // se penaliza con la misma cantidad por dejarla caer.
       if (it.y > groundY) {
+        if (it.type !== 'veg') {
+          const penalty = Math.abs(it.pts);
+          score -= penalty;
+          popup('-' + penalty, it.x, groundY - 28, true);
+          window.SFX && SFX.play('hurt');
+          updateHUD();
+        }
         it.dead = true;
         it.el.remove();
         items.splice(i, 1);

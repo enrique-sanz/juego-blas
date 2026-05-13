@@ -16,31 +16,43 @@
     if (name === 'level1') {
       currentLevel = 'level1';
       window.Level2 && window.Level2.stop();
+      window.Level3 && window.Level3.stop();
       window.Level1 && window.Level1.start();
     } else if (name === 'level2') {
       currentLevel = 'level2';
       window.Level1 && window.Level1.stop();
+      window.Level3 && window.Level3.stop();
       window.Level2 && window.Level2.start();
+    } else if (name === 'level3') {
+      currentLevel = 'level3';
+      window.Level1 && window.Level1.stop();
+      window.Level2 && window.Level2.stop();
+      window.Level3 && window.Level3.start();
     } else {
       window.Level1 && window.Level1.stop();
       window.Level2 && window.Level2.stop();
+      window.Level3 && window.Level3.stop();
     }
 
     // Mensaje contextual en la pantalla de Game Over
     if (name === 'gameover') {
       const msg = document.getElementById('gameoverMsg');
       if (msg) {
-        msg.textContent = currentLevel === 'level2'
-          ? 'Te falta hambre… ¡vuelve a intentarlo!'
-          : 'Se te han escapado los buzones… ¡vuelve a intentarlo!';
+        if (currentLevel === 'level2') {
+          msg.textContent = '¡Vengaaaa! Que no puedes tirarte toda la mañana almorzando.';
+        } else if (currentLevel === 'level3') {
+          msg.textContent = '¡Hoy ganan los campeones! Vuelve a intentarlo.';
+        } else {
+          msg.textContent = 'Se te han escapado los buzones… ¡vuelve a intentarlo!';
+        }
       }
     }
 
     // Sonido de transición específico para algunas pantallas
     if (window.SFX) {
-      if (name === 'level1-success' || name === 'level2-success') SFX.play('win');
+      if (name === 'level1-success' || name === 'level2-success' || name === 'level3-success') SFX.play('win');
       else if (name === 'gameover') SFX.play('gameover');
-      else if (name === 'level1' || name === 'level2') SFX.play('start');
+      else if (name === 'level1' || name === 'level2' || name === 'level3') SFX.play('start');
     }
   }
 
@@ -67,6 +79,9 @@
       case 'go-level2':
         showScreen('level2');
         break;
+      case 'go-level3':
+        showScreen('level3');
+        break;
       case 'retry-current':
         // Reintenta el último nivel jugado
         showScreen(currentLevel || 'level1');
@@ -83,6 +98,8 @@
     onGameOver:         () => showScreen('gameover'),
     onLevel2Complete:   () => showScreen('level2-success'),
     onLevel2GameOver:   () => showScreen('gameover'),
+    onLevel3Complete:   () => showScreen('level3-success'),
+    onLevel3GameOver:   () => showScreen('gameover'),
   };
 
   // ----------------------------------------------------------
@@ -99,6 +116,8 @@
     'level1-success',
     'level2',
     'level2-success',
+    'level3',
+    'level3-success',
     'gameover',
   ];
 
