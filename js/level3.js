@@ -13,8 +13,8 @@
   const PADDLE_H = 80;
   const BALL_R   = 16;
   const PADDLE_SPEED = 380;       // velocidad del jugador (px/s)
-  const AI_SPEED_REACT  = 230;    // IA reaccionando a la bola
-  const AI_SPEED_RESET  = 110;    // IA recolocándose en pausa
+  const AI_SPEED_REACT  = 150;    // IA reaccionando a la bola
+  const AI_SPEED_RESET  = 70;     // IA recolocándose en pausa
   const BALL_SPEED_INIT = 260;    // módulo inicial de la velocidad
   const BALL_SPEED_MAX  = 460;    // tope al subir tras cada golpe
   const SPIN_FACTOR     = 110;    // empuje horizontal según punto de golpe
@@ -128,13 +128,14 @@
   }
 
   function resetBall(serveTo) {
-    // serveTo: 'A' = bola va hacia abajo (Blas debe responder);
-    //         'B' = bola va hacia arriba (rivales deben responder)
+    // serveTo = quién recibe (defiende):
+    //   'A' (Blas+Bela, arriba) → bola sube
+    //   'B' (rivales, abajo)    → bola baja
     ball.x = stageW / 2;
     ball.y = stageH / 2;
     const speed = BALL_SPEED_INIT;
     const angle = rand(-0.35, 0.35);
-    const dirY = (serveTo === 'A') ? 1 : -1;
+    const dirY = (serveTo === 'A') ? -1 : 1;
     ball.vx = Math.sin(angle) * speed;
     ball.vy = Math.cos(angle) * speed * dirY;
   }
@@ -142,14 +143,14 @@
   function update(dt) {
     if (phase === 'won' || phase === 'lost') return;
 
-    // Movimiento del jugador (pala de abajo)
+    // Movimiento del jugador (pala de arriba = Blas + Belasteguín)
     const dir = (touchRightDown ? 1 : 0) - (touchLeftDown ? 1 : 0);
     if (dir !== 0) {
-      paddleBot.x += dir * PADDLE_SPEED * dt;
-      paddleBot.x = clamp(paddleBot.x, 0, stageW - paddleBot.w);
+      paddleTop.x += dir * PADDLE_SPEED * dt;
+      paddleTop.x = clamp(paddleTop.x, 0, stageW - paddleTop.w);
     }
 
-    // IA de la pala de arriba
+    // IA de la pala de abajo (rivales)
     updateAI(dt);
 
     if (phase === 'point') {
@@ -218,11 +219,12 @@
     // Limitar la velocidad final tras el golpe
     if (Math.abs(ball.vy) > BALL_SPEED_MAX) ball.vy = sign(ball.vy) * BALL_SPEED_MAX;
 
-    // Punto si la bola sale por encima del campo (pasó a los rivales)
+    // Si la bola escapa por arriba, han fallado los de arriba (Blas+Bela)
+    // → punto para los rivales (B). Y al revés.
     if (ball.y < -BALL_R - 10) {
-      pointFor('A');
-    } else if (ball.y > stageH + BALL_R + 10) {
       pointFor('B');
+    } else if (ball.y > stageH + BALL_R + 10) {
+      pointFor('A');
     }
 
     applyPaddleTransforms();
@@ -284,13 +286,14 @@
   }
 
   function updateAI(dt) {
-    const target = ball.x - paddleTop.w / 2;
-    const reactive = ball.vy < 0 || phase === 'point' === false;
+    const target = ball.x - paddleBot.w / 2;
+    // Reactiva cuando la bola va hacia los rivales (vy > 0). Lenta al recolocarse.
+    const reactive = ball.vy > 0;
     const speed = reactive ? AI_SPEED_REACT : AI_SPEED_RESET;
-    const dx = target - paddleTop.x;
+    const dx = target - paddleBot.x;
     if (Math.abs(dx) < 3) return;
-    paddleTop.x += sign(dx) * Math.min(Math.abs(dx), speed * dt);
-    paddleTop.x = clamp(paddleTop.x, 0, stageW - paddleTop.w);
+    paddleBot.x += sign(dx) * Math.min(Math.abs(dx), speed * dt);
+    paddleBot.x = clamp(paddleBot.x, 0, stageW - paddleBot.w);
   }
 
   // -------------------- Marcador --------------------

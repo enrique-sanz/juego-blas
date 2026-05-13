@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>El juego de los 45 de Blas</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260513-11" />
+  <link rel="stylesheet" href="css/styles.css?v=20260513-34" />
 </head>
 <body>
   <div id="app">
@@ -16,6 +16,10 @@
     <!-- PANTALLA DE BIENVENIDA -->
     <section class="screen screen--welcome is-active" data-screen="welcome">
       <div class="stars" aria-hidden="true"></div>
+      <!-- Hotspot invisible para activar el modo debug. Está en el centro
+           de la pantalla 100px por encima del medio. -->
+      <button class="debug-hotspot" id="debugHotspot" type="button"
+              aria-hidden="true" tabindex="-1"></button>
       <div class="welcome__inner">
         <h1 class="title">
           <span class="title__line title__line--1">¡Bienvenido al</span>
@@ -200,20 +204,20 @@
           </div>
           <div class="l3-state" id="l3State"></div>
 
-          <!-- Pala arriba: Lebrón + Galán, cada uno con su raqueta -->
+          <!-- Pala arriba: Blas + Belasteguín, cada uno con su raqueta -->
           <div class="l3-paddle l3-paddle--top" id="l3PaddleTop">
-            <div class="l3-face l3-face--lebron"><span class="l3-racket"></span></div>
-            <div class="l3-face l3-face--galan"><span class="l3-racket"></span></div>
-          </div>
-
-          <!-- Pala abajo: Blas + Belasteguín, cada uno con su raqueta -->
-          <div class="l3-paddle l3-paddle--bottom" id="l3PaddleBottom">
             <div class="l3-face l3-face--blas"><span class="l3-racket"></span></div>
             <div class="l3-face l3-face--bela"><span class="l3-racket"></span></div>
           </div>
 
-          <!-- Bola -->
-          <div class="l3-ball" id="l3Ball">🎾</div>
+          <!-- Pala abajo: Lebrón + Galán, cada uno con su raqueta -->
+          <div class="l3-paddle l3-paddle--bottom" id="l3PaddleBottom">
+            <div class="l3-face l3-face--lebron"><span class="l3-racket"></span></div>
+            <div class="l3-face l3-face--galan"><span class="l3-racket"></span></div>
+          </div>
+
+          <!-- Bola (dibujada con CSS para que sea siempre una bola) -->
+          <div class="l3-ball" id="l3Ball"></div>
 
           <!-- Overlay "punto de partido" -->
           <div class="l3-matchpoint" id="l3Matchpoint">
@@ -230,14 +234,152 @@
 
     <!-- ÉXITO NIVEL 3 -->
     <section class="screen screen--success" data-screen="level3-success">
-      <div class="success__inner">
+      <div class="success__inner success__inner--compact">
         <h2 class="subtitle subtitle--ok">¡JUEGO!</h2>
+        <p class="success__note">(¡el último reto te espera!)</p>
+        <div class="reto-card">
+          <p class="reto-card__title">RETO FINAL</p>
+          <p class="reto-card__lead">Tanda de penaltis 🥅⚽</p>
+          <ul class="reto-card__rules">
+            <li>De joven fuiste <strong>portero</strong>… ¡aún te acuerdas!</li>
+            <li>El <strong>Madrid</strong> juega la final de la Champions: hay que evitarla</li>
+            <li><strong>Paras</strong>: muévete con izq/der entre los palos</li>
+            <li><strong>Tiras</strong>: pulsa la portería y mantén para cargar la fuerza, suelta para chutar</li>
+            <li>5 tiros por equipo. ¡Suerte!</li>
+          </ul>
+        </div>
+        <button class="btn btn--primary" data-action="go-level4">¡A POR ELLOS!</button>
+      </div>
+    </section>
+
+    <!-- NIVEL 4: TANDA DE PENALTIS -->
+    <section class="screen screen--game screen--game-portrait" data-screen="level4">
+      <div class="game-stage game-stage--portrait" id="gameStage4">
+        <!-- Mundo cenital compartido: el portero (Blas o Courtois) y el
+             chutador (Madrid o Blas) ocupan siempre el mismo escenario.
+             is-defend = Madrid chuta · Blas para. is-shoot = Blas chuta. -->
+        <div class="l4-world is-defend" id="l4World">
+
+          <!-- Marcador (común) -->
+          <div class="l4-score">
+            <span class="l4-score__team">BLAS</span>
+            <span class="l4-score__pts" id="l4ScoreBlas">0</span>
+            <span class="l4-score__sep">·</span>
+            <span class="l4-score__pts" id="l4ScoreMad">0</span>
+            <span class="l4-score__team">MADRID</span>
+          </div>
+          <div class="l4-shots" id="l4Shots"></div>
+
+          <!-- Aviso central (común). Soporta texto + imagen grande
+               opcional (p. ej. cara de Brahim cuando falla). -->
+          <div class="l4-msg" id="l4Msg">
+            <span class="l4-msg__text" id="l4MsgText"></span>
+            <img class="l4-msg__img" id="l4MsgImg" alt="" />
+          </div>
+
+          <!-- ============================================== -->
+          <!-- ESCENA CENITAL (compartida por ambos modos):    -->
+          <!--  · Gradas con Florentino + aficionados          -->
+          <!--  · Vallas publicitarias                          -->
+          <!--  · Portería en perspectiva                       -->
+          <!--  · Área grande                                   -->
+          <!--  · Punto de penalti abajo con el chutador        -->
+          <!-- ============================================== -->
+          <div class="l4-def">
+            <!-- GRADAS -->
+            <div class="l4-stand" id="l4Stand">
+              <div class="l4-fans" id="l4Fans"></div>
+              <!-- Florentino: cuadrado fijo en el cuarto superior izquierdo -->
+              <div class="l4-flo" id="l4Flo">
+                <div class="l4-flo__face"></div>
+              </div>
+            </div>
+
+            <!-- Bocadillo de Florentino (fuera del stand para colocarlo libre) -->
+            <div class="l4-flo-bubble" id="l4FloBubble"></div>
+
+            <!-- VALLAS PUBLICITARIAS -->
+            <div class="l4-ads">
+              <div class="l4-ads__text">
+                FERRETERÍA BLAJU · TOLDOS Y ESTUFAS
+              </div>
+            </div>
+
+            <!-- CÉSPED -->
+            <div class="l4-pitch"></div>
+
+            <!-- PORTERÍA: vista frontal y simétrica con divs CSS.
+                 left:9% y right:9% garantizan misma distancia a cada borde.
+                 Cuando Blas chuta, el área interior es la zona donde
+                 apuntará pulsando. -->
+            <div class="l4-goal" id="l4Goal">
+              <div class="l4-goal__net"></div>
+              <div class="l4-goal__post l4-goal__post--left"></div>
+              <div class="l4-goal__post l4-goal__post--right"></div>
+              <div class="l4-goal__bar"></div>
+              <!-- Cruz de apuntado (solo visible cuando Blas chuta) -->
+              <div class="l4-aim" id="l4Aim"></div>
+            </div>
+
+            <!-- Línea de gol: cruza toda la pantalla de borde a borde -->
+            <div class="l4-goal-line"></div>
+
+            <!-- ÁREA DE PENALTI (rectángulo blanco grande donde se mueve Blas) -->
+            <div class="l4-area"></div>
+
+            <!-- Portero: paddle horizontal sobre la línea de gol.
+                 La cara la pone el JS (Blas / Courtois). -->
+            <div class="l4-keeper" id="l4Keeper">
+              <div class="l4-keeper__head" id="l4KeeperHead"></div>
+              <div class="l4-keeper__glove l4-keeper__glove--l"></div>
+              <div class="l4-keeper__glove l4-keeper__glove--r"></div>
+            </div>
+
+            <!-- Chutador: junto al punto de penalti.
+                 Cara y nombre los pone el JS (jugador del Madrid / Blas). -->
+            <div class="l4-shooter" id="l4Shooter">
+              <div class="l4-shooter__head" id="l4ShooterHead"></div>
+              <div class="l4-shooter__name" id="l4ShooterName"></div>
+            </div>
+
+            <!-- Punto de penalti -->
+            <div class="l4-spot"></div>
+
+            <!-- Balón -->
+            <div class="l4-ball" id="l4Ball">⚽</div>
+
+            <!-- Barra de fuerza (solo aparece cuando Blas chuta) -->
+            <div class="l4-power" id="l4Power">
+              <div class="l4-power__zone l4-power__zone--weak"></div>
+              <div class="l4-power__zone l4-power__zone--ok"></div>
+              <div class="l4-power__zone l4-power__zone--strong"></div>
+              <div class="l4-power__bar" id="l4PowerBar"></div>
+              <div class="l4-power__lbl">FUERZA</div>
+            </div>
+
+            <!-- Indicación táctil para chutar -->
+            <div class="l4-hint" id="l4Hint">PULSA Y MANTÉN EN LA PORTERÍA</div>
+          </div>
+
+        </div>
+
+        <!-- Zonas táctiles izq/der (sólo defendiendo) -->
+        <button class="touchpad touchpad--left" id="touchLeft4" aria-label="Izquierda">◀</button>
+        <button class="touchpad touchpad--right" id="touchRight4" aria-label="Derecha">▶</button>
+      </div>
+    </section>
+
+    <!-- ÉXITO NIVEL 4 (final del juego) -->
+    <section class="screen screen--success" data-screen="level4-success">
+      <div class="success__inner">
+        <h2 class="subtitle subtitle--ok">¡CAMPEÓN!</h2>
         <p class="success__big">
-          Habéis ganado el juego a los campeones del mundo.<br/>
-          <strong>Blas + Belasteguín</strong> levantan la pala.
+          Has evitado que el Madrid llegue a la final.<br/>
+          ¡<strong>Blas, héroe del barrio!</strong>
         </p>
         <p class="success__small">
-          ¡Feliz cumpleaños, Blas!
+          Has completado todos los retos.<br/>
+          ¡Muchas felicidades por tus 45!
         </p>
         <button class="btn btn--primary" data-action="go-welcome">VOLVER AL INICIO</button>
       </div>
@@ -257,16 +399,19 @@
     <button class="debug-bar__btn" data-debug-screen="level2-success" title="Final reto 2">7</button>
     <button class="debug-bar__btn" data-debug-screen="level3"         title="Reto 3">8</button>
     <button class="debug-bar__btn" data-debug-screen="level3-success" title="Final reto 3">9</button>
+    <button class="debug-bar__btn" data-debug-screen="level4"         title="Reto 4">A</button>
+    <button class="debug-bar__btn" data-debug-screen="level4-success" title="Final reto 4">B</button>
     <button class="debug-bar__btn" data-debug-screen="gameover"       title="Game Over">0</button>
   </div>
 
   <!-- Botón global de silenciar audio -->
   <button class="mute-btn" id="muteBtn" type="button" data-mute aria-label="Silenciar" aria-pressed="false">🔊</button>
 
-  <script src="js/sfx.js?v=20260513-11"></script>
-  <script src="js/level1.js?v=20260513-11"></script>
-  <script src="js/level2.js?v=20260513-11"></script>
-  <script src="js/level3.js?v=20260513-11"></script>
-  <script src="js/main.js?v=20260513-11"></script>
+  <script src="js/sfx.js?v=20260513-34"></script>
+  <script src="js/level1.js?v=20260513-34"></script>
+  <script src="js/level2.js?v=20260513-34"></script>
+  <script src="js/level3.js?v=20260513-34"></script>
+  <script src="js/level4.js?v=20260513-34"></script>
+  <script src="js/main.js?v=20260513-34"></script>
 </body>
 </html>

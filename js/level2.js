@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  const TIME_LIMIT = 30;
+  const TIME_LIMIT = 45;
   const SCORE_GOAL = 1000;
   const GRAVITY = 700;        // px/s²
   const PLAYER_SPEED = 320;   // px/s
@@ -191,13 +191,17 @@
 
     // Tiempo (congelado en debug)
     if (!window.debugMode) {
+      const prevSec = Math.max(0, Math.ceil(timeLeft));
       timeLeft -= dt;
       if (timeLeft <= 0) {
         timeLeft = 0;
+        updateHUD();
         if (score >= SCORE_GOAL) winLevel();
         else                     loseLevel();
         return;
       }
+      const curSec = Math.max(0, Math.ceil(timeLeft));
+      if (curSec !== prevSec) updateHUD();
     }
 
     // Movimiento jugador
@@ -270,10 +274,10 @@
       }
 
       // Cae al suelo: se descarta. Si era comida/bebida que sumaba,
-      // se penaliza con la misma cantidad por dejarla caer.
+      // se penaliza con la mitad de su valor por dejarla caer.
       if (it.y > groundY) {
         if (it.type !== 'veg') {
-          const penalty = Math.abs(it.pts);
+          const penalty = Math.ceil(Math.abs(it.pts) / 2);
           score -= penalty;
           popup('-' + penalty, it.x, groundY - 28, true);
           window.SFX && SFX.play('hurt');

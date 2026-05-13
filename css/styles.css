@@ -660,77 +660,92 @@ html, body {
   position: relative;
   width: 60px;
   height: 80px;
-  background-size: cover;
-  background-position: center;
   filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.4));
 }
-.l3-face--lebron { background-image: url('../assets/lebron-face.png?v=20260513-11'); }
-.l3-face--galan  { background-image: url('../assets/galan-face.png?v=20260513-11'); }
-.l3-face--blas   { background-image: url('../assets/blas-face.png?v=20260513-11'); }
-.l3-face--bela   { background-image: url('../assets/belasteguin-face.png?v=20260513-11'); }
-
-/* Cada cara lleva su propia raqueta, inclinada hacia el campo */
-.l3-racket {
-  position: absolute;
-  width: 22px;
-  height: 30px;
-  background: radial-gradient(circle, #f4f4f4 0%, #d0d0d0 70%, #888 100%);
-  border: 2px solid #1a1a1a;
-  border-radius: 50%;
-  left: 50%;
-}
-.l3-racket::after {
+/* Pseudo-element con el retrato: así puedo girar SOLO la imagen sin
+   afectar a la raqueta que cuelga de cada cara */
+.l3-face::before {
   content: '';
   position: absolute;
-  left: 50%;
-  width: 4px;
-  height: 14px;
-  background: #1a1a1a;
-  transform: translateX(-50%);
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+/* Los que están abajo del campo miran hacia la red (arriba) → su imagen
+   se voltea 180° para que parezca vista cenital correcta. */
+.l3-face--blas::before   { background-image: url('../assets/blas-face.png?v=20260513-27'); }
+.l3-face--bela::before   { background-image: url('../assets/belasteguin-face.png?v=20260513-27'); }
+.l3-face--lebron::before {
+  background-image: url('../assets/lebron-face.png?v=20260513-27');
+  transform: rotate(180deg);
+}
+.l3-face--galan::before  {
+  background-image: url('../assets/galan-face.png?v=20260513-27');
+  transform: rotate(180deg);
 }
 
-/* Pareja de arriba: la raqueta sale por debajo de cada cara (apunta al
-   campo) y el mango sube hacia la mano del jugador */
+/* Pala de pádel: forma lacrimal con agujeros y mango, SVG inline.
+   Vista por defecto: cuerpo arriba, mango abajo. */
+.l3-racket {
+  position: absolute;
+  width: 30px;
+  height: 40px;
+  left: 50%;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 130'><rect x='46' y='98' width='8' height='24' fill='%23222' rx='1'/><rect x='40' y='118' width='20' height='10' fill='%23404040' rx='3'/><path d='M50 6 C82 6 92 32 90 58 C88 82 75 102 50 102 C25 102 12 82 10 58 C8 32 18 6 50 6 Z' fill='%23262633' stroke='%23000' stroke-width='3'/><path d='M50 14 C76 14 86 36 84 56 C82 76 68 92 50 92 C32 92 18 76 16 56 C14 36 24 14 50 14 Z' fill='%23363645' opacity='0.55'/><ellipse cx='50' cy='52' rx='14' ry='18' fill='%23d44a1a'/><ellipse cx='50' cy='52' rx='8' ry='10' fill='%23262633'/><g fill='%23eeeeee'><circle cx='30' cy='30' r='2.4'/><circle cx='42' cy='26' r='2.4'/><circle cx='58' cy='26' r='2.4'/><circle cx='70' cy='30' r='2.4'/><circle cx='22' cy='42' r='2.4'/><circle cx='34' cy='40' r='2.4'/><circle cx='66' cy='40' r='2.4'/><circle cx='78' cy='42' r='2.4'/><circle cx='18' cy='56' r='2.4'/><circle cx='30' cy='56' r='2.4'/><circle cx='70' cy='56' r='2.4'/><circle cx='82' cy='56' r='2.4'/><circle cx='22' cy='70' r='2.4'/><circle cx='34' cy='72' r='2.4'/><circle cx='66' cy='72' r='2.4'/><circle cx='78' cy='70' r='2.4'/><circle cx='30' cy='84' r='2.4'/><circle cx='42' cy='88' r='2.4'/><circle cx='58' cy='88' r='2.4'/><circle cx='70' cy='84' r='2.4'/></g></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+/* Pareja de arriba: raqueta justo debajo de la barbilla, con el SVG
+   rotado 180° (para que el mango quede hacia la cara). El pivote es
+   el centro, así el bounding box se mantiene bajo la cara. */
 .l3-paddle--top .l3-racket {
   top: 100%;
-  margin-top: 2px;
-  transform: translateX(-50%) rotate(22deg);
-  transform-origin: top center;
+  margin-top: 1px;
+  transform: translateX(-50%) rotate(200deg);
+  transform-origin: center center;
 }
 .l3-paddle--top .l3-face:first-child .l3-racket {
-  transform: translateX(-50%) rotate(-22deg);
-}
-.l3-paddle--top .l3-racket::after {
-  bottom: 100%;        /* mango hacia arriba (hacia la cara) */
-  top: auto;
+  transform: translateX(-50%) rotate(160deg);
 }
 
-/* Pareja de abajo: la raqueta sale por encima de cada cara (apunta al
-   campo) y el mango baja hacia la mano del jugador */
+/* Pareja de abajo: raqueta sale por encima de cada cara, mango abajo. */
 .l3-paddle--bottom .l3-racket {
   bottom: 100%;
-  margin-bottom: 2px;
-  transform: translateX(-50%) rotate(-22deg);
+  margin-bottom: 1px;
+  transform: translateX(-50%) rotate(-20deg);
   transform-origin: bottom center;
 }
 .l3-paddle--bottom .l3-face:last-child .l3-racket {
-  transform: translateX(-50%) rotate(22deg);
-}
-.l3-paddle--bottom .l3-racket::after {
-  top: 100%;           /* mango hacia abajo (hacia la cara) */
+  transform: translateX(-50%) rotate(20deg);
 }
 
+/* Bola de pádel dibujada con CSS (consistente entre dispositivos) */
 .l3-ball {
   left: 0; top: 0;
-  width: 32px;
-  height: 32px;
-  font-size: 30px;
-  line-height: 32px;
-  text-align: center;
+  width: 26px;
+  height: 26px;
+  background: radial-gradient(circle at 35% 30%, #f4ff66 0%, #c8e225 55%, #88a800 100%);
+  border: 2px solid #1a1a1a;
+  border-radius: 50%;
   pointer-events: none;
   will-change: transform;
-  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.4));
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.35));
+  overflow: hidden;
 }
+.l3-ball::before,
+.l3-ball::after {
+  content: '';
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+}
+.l3-ball::before { top: 30%; transform: rotate(18deg); }
+.l3-ball::after  { top: 64%; transform: rotate(-18deg); }
 
 /* Overlay grande "¡PUNTO DE PARTIDO!" */
 .l3-matchpoint {
@@ -776,6 +791,644 @@ html, body {
   from { box-shadow: 0 0 0 0 rgba(255,210,0,0.0); }
   to   { box-shadow: 0 0 0 4px rgba(255,210,0,0.35); }
 }
+
+/* === RETO 4: TANDA DE PENALTIS ================================= */
+.l4-world {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  font-family: inherit;
+  background: #2a7d3d;
+}
+.l4-world > * { position: absolute; }
+
+/* Escena cenital compartida. Cuando Blas chuta (is-shoot) cambian caras
+   y aparece la UI de chute; cuando defiende (is-defend) los touchpads
+   mueven el portero. */
+.l4-def { position: absolute; inset: 0; }
+.l4-world.is-shoot ~ .touchpad { display: none; }
+
+/* Marcador numérico — OCULTO (solo se usa el de tipo semáforo) */
+.l4-score {
+  display: none;
+}
+.l4-score__team { font-size: 8px; color: #fff; letter-spacing: 1px; }
+.l4-score__pts  { font-size: 16px; min-width: 22px; text-align: center; }
+.l4-score__sep  { color: #fff; opacity: 0.6; }
+
+/* Marcador tipo semáforo: pegado al tope de pantalla */
+.l4-shots {
+  top: 1%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  z-index: 8;
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid #ffd200;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+.l4-shots__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.l4-shots__lbl {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  letter-spacing: 1px;
+}
+.l4-shots__row { display: flex; gap: 3px; }
+.l4-shot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+.l4-shot.is-goal { background: #7eff7e; border-color: #2e6f2e; }
+.l4-shot.is-miss { background: #ff5a5a; border-color: #7a1818; }
+
+/* Aviso central */
+.l4-msg {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.85);
+  width: 90%;
+  max-width: 320px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  text-align: center;
+  color: #ffd200;
+  text-shadow: 3px 3px 0 #000;
+  background: rgba(0, 0, 0, 0.78);
+  border: 4px solid #ffd200;
+  border-radius: 8px;
+  padding: 12px 14px;
+  letter-spacing: 1px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease-out, transform 150ms ease-out;
+  z-index: 12;
+}
+.l4-msg.is-active {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.l4-msg--goal { color: #7eff7e; border-color: #7eff7e; }
+.l4-msg--save { color: #6ed1ff; border-color: #6ed1ff; }
+.l4-msg--bad  { color: #ff7e7e; border-color: #ff7e7e; }
+.l4-msg__text { display: block; }
+.l4-msg__img {
+  display: none;
+  margin: 12px auto 0;
+  width: 160px;
+  max-width: 60%;
+  height: auto;
+  border: 4px solid currentColor;
+  border-radius: 6px;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.5);
+  background: #000;
+}
+.l4-msg__img.is-visible { display: block; }
+
+/* =====================================================
+   MODO DEFENSA (vista desde detrás del portero)
+   ===================================================== */
+
+/* GRADAS: franja muy delgada, oscura, repleta de aficionados */
+.l4-stand {
+  top: 0; left: 0; right: 0; height: 10%;
+  background: linear-gradient(180deg, #1f1f2a 0%, #15151c 100%);
+  border-bottom: 3px solid #000;
+  overflow: hidden;
+}
+/* Filas sutiles claras sobre fondo oscuro */
+.l4-stand::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(180deg,
+    rgba(255,255,255,0.05) 0 1px,
+    transparent 1px 8px);
+  pointer-events: none;
+}
+
+/* Aficionados: puntos de colores distribuidos por toda la grada */
+.l4-fans {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.l4-fan {
+  position: absolute;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.45);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.35);
+  will-change: transform;
+}
+.l4-stand.is-shaking .l4-fan { animation: l4fanShake 0.4s ease-in-out 3; }
+@keyframes l4fanShake {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-5px); }
+}
+
+/* FLORENTINO: cuadrado fijo en la izquierda del stand (máx 50px) */
+.l4-flo {
+  position: absolute;
+  top: 3%;
+  left: 4%;
+  height: 90%;
+  max-height: 50px;
+  aspect-ratio: 1 / 1;
+  background: #cff4f7;
+  border: 3px solid #45b6c5;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.25);
+  z-index: 4;
+  overflow: hidden;
+}
+.l4-flo__face {
+  position: absolute;
+  inset: 2px;
+  background-image: url('../assets/florentino-face.png');
+  background-size: cover;
+  background-position: center top;
+}
+
+/* Bocadillo de Florentino: en el hueco entre el marcador y la valla, flecha a la IZQUIERDA */
+.l4-flo-bubble {
+  position: absolute;
+  top: 6%;
+  left: 22%;
+  right: 5%;
+  background: #003399;
+  color: #ffd200;
+  border: 2px solid #ffd200;
+  box-shadow: 2px 2px 0 #000;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  line-height: 1.4;
+  letter-spacing: 0.5px;
+  text-align: center;
+  opacity: 0;
+  transform: scale(0.7);
+  transform-origin: 0% center;
+  pointer-events: none;
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+  z-index: 10;
+}
+.l4-flo-bubble.is-active {
+  opacity: 1;
+  transform: scale(1);
+}
+/* Flecha apuntando a la IZQUIERDA (hacia Florentino en la grada) */
+.l4-flo-bubble::before {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 7px solid transparent;
+  border-right-color: #ffd200;
+}
+.l4-flo-bubble::after {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-right-color: #003399;
+  margin-right: -2px;
+}
+
+/* VALLAS PUBLICITARIAS: franja gris debajo de la grada */
+.l4-ads {
+  position: absolute;
+  top: 10%; left: 0; right: 0;
+  height: 4%;
+  background: linear-gradient(180deg, #c8c8c8 0%, #9c9c9c 100%);
+  border-bottom: 2px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 2;
+}
+.l4-ads__text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: #000;
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
+  white-space: nowrap;
+  animation: l4adsScroll 14s linear infinite;
+}
+@keyframes l4adsScroll {
+  from { transform: translateX(60%); }
+  to   { transform: translateX(-100%); }
+}
+
+/* CÉSPED: parte verde grande */
+.l4-pitch {
+  position: absolute;
+  top: 14%; bottom: 0; left: 0; right: 0;
+  background:
+    linear-gradient(180deg, #2e9d44 0%, #226c34 100%),
+    repeating-linear-gradient(180deg, #2e8d44 0 32px, #2a7d3d 32px 64px);
+  background-blend-mode: multiply;
+}
+
+/* PORTERÍA de Blas: rectángulo centrado entre left:9% y right:9% (mismo
+   margen a cada lado). Postes verticales en los bordes y larguero arriba. */
+.l4-goal {
+  position: absolute;
+  top: 16%;
+  left: 9%;
+  right: 9%;
+  height: 11%;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 0 rgba(0,0,0,0.4));
+  z-index: 3;
+}
+.l4-goal__net {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,0.78) 0 1px, transparent 1px 6%),
+    repeating-linear-gradient(180deg,
+      rgba(255,255,255,0.78) 0 1px, transparent 1px 14%),
+    radial-gradient(ellipse at center,
+      rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.02) 80%);
+}
+.l4-goal__post {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 4px;
+  background: #fff;
+  border-radius: 1px;
+}
+.l4-goal__post--left  { left: 0; }
+.l4-goal__post--right { right: 0; }
+.l4-goal__bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: #fff;
+  border-radius: 1px;
+}
+
+/* Línea de gol: blanca, de extremo a extremo de la pantalla.
+   Cae justo bajo los postes (la portería ocupa de 16% a 27% de altura). */
+.l4-goal-line {
+  position: absolute;
+  top: 27%;
+  left: 0;
+  right: 0;
+  height: 4px;
+  margin-top: -3px;
+  background: #fff;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.35);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ÁREA PEQUEÑA: las dos verticales salen del punto medio entre el poste
+   y el borde de la pantalla (postes al 9%, borde al 0% → midpoint 4.5%).
+   La altura es 2x la de los postes (11% de stageH × 2 = 22%) y la base
+   horizontal une los dos extremos inferiores. */
+.l4-area {
+  position: absolute;
+  top: 27%;
+  left: 4.5%;
+  right: 4.5%;
+  height: 22%;
+  border: 3px solid #fff;
+  border-top: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Paddle de Blas: se posiciona con JS en la línea de gol */
+.l4-keeper {
+  position: absolute;
+  top: 0; left: 0;
+  width: 58px;
+  height: 50px;
+  will-change: transform;
+  pointer-events: none;
+  z-index: 5;
+}
+.l4-keeper__head {
+  position: absolute;
+  top: 2px; left: 50%;
+  transform: translateX(-50%);
+  width: 46px; height: 46px;
+  background-image: url('../assets/blas-face.png');
+  background-size: cover;
+  background-position: center;
+  border-radius: 50%;
+  filter: drop-shadow(0 3px 0 rgba(0,0,0,0.4));
+  transition: transform 120ms ease-out;
+}
+/* Variante Courtois para el portero (cuando Blas chuta) */
+.l4-keeper.is-courtois .l4-keeper__head {
+  background-image: url('../assets/courtois-face.png');
+}
+/* Guantes de portero dibujados con CSS:
+   - Cuerpo: rectángulo blanco con borde negro, dedos a la derecha (más redondeados)
+   - Pseudo-elemento ::before: banda de la muñeca a la izquierda
+   - Pseudo-elemento ::after: pulgar saliendo hacia arriba
+   El guante derecho usa la orientación base (dedos a la derecha).
+   El guante izquierdo se voltea con scaleX(-1) para que los dedos miren a la izquierda. */
+.l4-keeper__glove {
+  position: absolute;
+  width: 22px;
+  height: 16px;
+  background: #fff;
+  border: 2px solid #000;
+  border-radius: 4px 12px 12px 4px;
+  top: 24px;
+  filter: drop-shadow(1px 1px 0 rgba(0,0,0,0.4));
+  transition: all 150ms ease-out;
+}
+.l4-keeper__glove::before {
+  /* Banda de la muñeca a la izquierda del guante */
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 2px;
+  bottom: 2px;
+  width: 4px;
+  border-right: 2px solid #000;
+}
+.l4-keeper__glove::after {
+  /* Pulgar saliendo hacia arriba del guante */
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: -5px;
+  width: 6px;
+  height: 7px;
+  background: #fff;
+  border: 2px solid #000;
+  border-bottom: 0;
+  border-radius: 50% 50% 0 0;
+}
+.l4-keeper__glove--r { right: -22px; transform: scale(1); }
+.l4-keeper__glove--l { left:  -22px; transform: scaleX(-1) scale(1); }
+.l4-keeper.is-dive-r .l4-keeper__glove--r {
+  right: -28px;
+  top: 30px;
+  transform: scale(1.15);
+}
+.l4-keeper.is-dive-l .l4-keeper__glove--l {
+  left: -28px;
+  top: 30px;
+  transform: scaleX(-1) scale(1.15);
+}
+.l4-keeper.is-dive-l .l4-keeper__head     { transform: translateX(-50%) rotate(-10deg); }
+.l4-keeper.is-dive-r .l4-keeper__head     { transform: translateX(-50%) rotate(10deg); }
+
+/* Flechas de dirección de Blas portero (indicadores de control)
+   Colocadas DEBAJO de los guantes, una a cada lado */
+.l4-keeper::before,
+.l4-keeper::after {
+  content: '';
+  position: absolute;
+  top: calc(100% + 6px);
+  width: 0; height: 0;
+  filter: drop-shadow(2px 2px 0 #000);
+  pointer-events: none;
+  animation: l4arrowPulse 1s ease-in-out infinite;
+}
+.l4-keeper::before {
+  left: -22px;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-right: 14px solid #ffd200;
+}
+.l4-keeper::after {
+  right: -22px;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-left: 14px solid #ffd200;
+}
+@keyframes l4arrowPulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+/* Cuando Blas se tira, la flecha del lado contrario se atenúa */
+.l4-keeper.is-dive-l::after { opacity: 0.2; animation: none; }
+.l4-keeper.is-dive-r::before { opacity: 0.2; animation: none; }
+/* Courtois no se controla con izq/dcha: ocultamos las flechas */
+.l4-keeper.is-courtois::before,
+.l4-keeper.is-courtois::after { display: none; }
+
+/* CHUTADOR: cara abajo del todo, el balón se ve sobre él */
+.l4-shooter {
+  position: absolute;
+  bottom: 2%;
+  left: 50%;
+  width: 60px;
+  height: 76px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 5;
+  will-change: transform;
+}
+.l4-shooter__head {
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 52px; height: 52px;
+  background-size: cover;
+  background-position: center;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #000, 0 3px 8px rgba(0,0,0,0.5);
+}
+.l4-shooter__name {
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  background: rgba(0,0,0,0.55);
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+.l4-shooter.is-kick { animation: l4defKick 0.22s ease-out; }
+.l4-shooter.is-fall { animation: l4defFall 0.6s ease-out forwards; }
+@keyframes l4defKick {
+  0%, 100% { transform: translateX(-50%) scale(1) translateY(0); }
+  45%      { transform: translateX(-50%) scale(1.08) translateY(-5px); }
+}
+@keyframes l4defFall {
+  from { transform: translateX(-50%) translateY(0) rotate(0); opacity: 1; filter: brightness(1); }
+  to   { transform: translateX(-50%) translateY(10px) rotate(-15deg); opacity: 0.45; filter: brightness(0.55) grayscale(0.6); }
+}
+
+/* Cara especial de Brahim "fallo" */
+.l4-shooter.is-failface .l4-shooter__head {
+  background-image: url('../assets/brahim-fallo.png') !important;
+}
+
+/* Cuando tira Blas: solo su cara, sin el círculo que lo rodea */
+.l4-shooter.is-blas .l4-shooter__head {
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+  background-size: contain;
+  background-repeat: no-repeat;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.45);
+}
+
+/* PUNTO DE PENALTI: justo encima del chutador */
+.l4-spot {
+  position: absolute;
+  bottom: 17%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px; height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.5);
+  z-index: 4;
+}
+
+/* BALÓN en defensa */
+.l4-ball {
+  position: absolute;
+  left: 0; top: 0;
+  width: 30px; height: 30px;
+  font-size: 28px; line-height: 30px;
+  text-align: center;
+  pointer-events: none;
+  will-change: transform;
+  filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.45));
+  z-index: 7;
+}
+
+/* =====================================================
+   MODO ATAQUE (Blas chuta): misma escena cenital,
+   sólo añade cruz de apuntado dentro de la portería y
+   la barra de fuerza con su pista.
+   ===================================================== */
+
+/* Cuando Blas chuta, el área dentro de la portería detecta el toque.
+   El resto del touch lo gestiona el JS a nivel del .l4-def. */
+.l4-world.is-shoot .l4-goal {
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Cruz de apuntado: hija de .l4-goal, posicionada con left/top en %. */
+.l4-aim {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  border: 3px solid #ffd200;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.5);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 100ms ease-out;
+  z-index: 5;
+}
+.l4-aim.is-visible { opacity: 1; }
+.l4-aim::before,
+.l4-aim::after {
+  content: '';
+  position: absolute;
+  background: #ffd200;
+}
+.l4-aim::before { left: 50%; top: -5px; bottom: -5px; width: 2px; transform: translateX(-50%); }
+.l4-aim::after  { top: 50%; left: -5px; right: -5px; height: 2px; transform: translateY(-50%); }
+
+/* Barra de fuerza: en el hueco entre el área y el punto de penalti,
+   bien visible y sin tapar el balón ni los jugadores. */
+.l4-power {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 56%;
+  height: 24px;
+  border: 2px solid #ffd200;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.65);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  z-index: 7;
+}
+.l4-power.is-visible { opacity: 1; }
+.l4-power__zone {
+  position: absolute;
+  top: 0; bottom: 0;
+}
+.l4-power__zone--weak   { left: 0;        width: 33.3333%; background: rgba(110, 209, 255, 0.35); }
+.l4-power__zone--ok     { left: 33.3333%; width: 33.3334%; background: rgba(126, 255, 126, 0.35); }
+.l4-power__zone--strong { left: 66.6667%; width: 33.3333%; background: rgba(255, 122, 122, 0.45); }
+.l4-power__bar {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 0;
+  width: 4px;
+  background: #ffd200;
+  box-shadow: 0 0 6px #ffd200;
+  will-change: transform;
+}
+.l4-power__lbl {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  transform: translateY(-50%);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  letter-spacing: 1px;
+}
+
+/* Pista al jugador: encima de la barra de fuerza */
+.l4-hint {
+  position: absolute;
+  top: 49%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #ffd200;
+  text-shadow: 2px 2px 0 #000;
+  background: rgba(0,0,0,0.65);
+  border: 2px solid #ffd200;
+  padding: 6px 10px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease-out;
+  z-index: 7;
+}
+.l4-hint.is-visible { opacity: 1; }
 
 /* Overlay rotación para vertical: cuando el móvil esté horizontal */
 .rotate-overlay--portrait p {
@@ -871,9 +1524,26 @@ html, body {
 /* No ocultar en pantallas de juego: queda sobre el HUD */
 
 /* ============================================================
-   MODO DEBUG (oculto: se activa pulsando la foto de Blas)
+   MODO DEBUG (oculto: se activa pulsando un punto invisible
+   en el centro de la pantalla, 100px por encima del medio)
    ============================================================ */
-.hero__img { cursor: pointer; }
+/* Zona de activación invisible, dentro de la pantalla de bienvenida */
+.debug-hotspot {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 100px);
+  transform: translate(-50%, -50%);
+  width: 90px;
+  height: 90px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 50;
+  opacity: 0;
+}
 
 .debug-bar {
   position: fixed;
@@ -913,7 +1583,21 @@ body.debug-mode::before {
   font-size: 9px;
   letter-spacing: 1px;
   margin-right: 4px;
+  cursor: pointer;
+  padding: 4px 6px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
+.debug-bar__title:hover { color: #ff6a6a; }
+
+/* Estado colapsado: solo se ve la palabra DEBUG. */
+.debug-bar.is-collapsed {
+  right: auto;
+  padding: 2px 4px;
+  gap: 0;
+}
+.debug-bar.is-collapsed .debug-bar__btn { display: none; }
+.debug-bar.is-collapsed .debug-bar__title { margin-right: 0; }
 .debug-bar__btn {
   font-family: inherit;
   font-size: 10px;

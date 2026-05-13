@@ -18,8 +18,8 @@
   const STOMP_VY = -380;   // rebote tras pisar buzón
   const PLAYER_SPEED = 90;   // px/s (avance normal del mundo)
   const PLAYER_X = 120;      // posición fija inicial de Blas en pantalla
-  const DURATION = 60;       // segundos del nivel
-  const FINAL_TIME = 52;     // a partir de aquí aparece la zona del árbol
+  const DURATION = 45;       // segundos del nivel
+  const FINAL_TIME = 39;     // a partir de aquí aparece la zona del árbol
 
   // Barra de fuerza para el super-salto: indicador oscila muy rápido.
   const METER_SPEED = 4.2;        // recorridos 0→1 por segundo (rebota muy rápido)
