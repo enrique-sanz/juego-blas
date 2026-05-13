@@ -138,8 +138,9 @@
 
   function buildBuzonSprite(img) {
     // Pre-renderizamos a alta resolución y quitamos el fondo blanco del PNG.
-    const w = 22 * SPRITE_SCALE;
-    const h = 34 * SPRITE_SCALE;
+    // La proporción coincide con el tamaño lógico del buzón en juego (72x52).
+    const w = 72 * SPRITE_SCALE;
+    const h = 52 * SPRITE_SCALE;
     // Recortamos la imagen original con un margen para descartar bordes
     // y el fondo blanco circundante de la foto del buzón.
     const c = document.createElement('canvas');
@@ -217,8 +218,8 @@
       spawnAt: t,
       spawned: false,
       worldX: 0,
-      y: GROUND_Y - 26,
-      w: 16, h: 26,
+      y: GROUND_Y - 32,   // 20px más abajo que apoyado al suelo
+      w: 72, h: 52,
       vx: -70,
       alive: true,
     }));
@@ -386,6 +387,12 @@
         // pero ya estamos representando cameraX, así que basta restar tiempo al worldX
         b.worldX += b.vx * dt;
       }
+      // Animación de aplastamiento: la altura cae hasta b.targetH manteniendo
+      // la base apoyada (b.baseY constante).
+      if (b.squashed && b.h > b.targetH) {
+        b.h = Math.max(b.targetH, b.h - 220 * dt);
+        b.y = b.baseY - b.h;
+      }
     });
     // Limpia buzones que pasaron a la izquierda
     buzones = buzones.filter((b) => !b.spawned || b.worldX > cameraX - 80);
@@ -447,11 +454,17 @@
       if (!b.spawned || !b.alive) return;
       const bx = b.worldX - cameraX;
       if (!rectsOverlap(px, py, pw, ph, bx, b.y, b.w, b.h)) return;
-      // ¿Cae encima?
-      const playerFootPrev = (py + ph) - (player.vy) * 0; // aproximación
-      const cameFromAbove = player.vy > 0 && (py + ph - b.y) < 14;
+
+      // Aplastado: no causa daño y se puede pasar por encima sin rebote
+      if (b.squashed) return;
+
+      const cameFromAbove = player.vy > 0 && (py + ph - b.y) < 20;
       if (cameFromAbove) {
-        b.alive = false;
+        // Marcar como aplastado: la altura se reducirá hasta 20 manteniendo
+        // la base del buzón apoyada (b.baseY no cambia).
+        b.squashed = true;
+        b.targetH = 20;
+        b.baseY = b.y + b.h;
         score += 200;
         popups.push({ worldX: b.worldX, y: b.y - 8, text: '+200', t: 0.9 });
         player.vy = STOMP_VY;
