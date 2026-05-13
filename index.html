@@ -4,8 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1020" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>El juego de los 45 de Blas</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=20260513-3" />
 </head>
 <body>
   <div id="app">
@@ -104,23 +107,17 @@
 
     <!-- ÉXITO NIVEL 1 -->
     <section class="screen screen--success" data-screen="level1-success">
-      <div class="success__inner">
+      <div class="success__inner success__inner--compact">
         <h2 class="subtitle subtitle--ok">¡ENHORABUENA!</h2>
-        <p class="success__big">
-          Has clavado el salto al platanero y has contado el chiste a todo el barrio.
-        </p>
-        <p class="success__note">(Acuérdate de poner el móvil en <strong>vertical</strong> para el siguiente reto)</p>
+        <p class="success__note">(vuelve a vertical)</p>
         <div class="reto-card">
           <p class="reto-card__title">SIGUIENTE RETO</p>
-          <p class="reto-card__lead">
-            ¡Al <strong>almuerzo</strong> del bar <strong>Casablanca</strong>!
-          </p>
+          <p class="reto-card__lead">Almuerzo en el <strong>Casablanca</strong></p>
           <ul class="reto-card__rules">
-            <li>El camarero colombiano te lanzará comida y bebida desde la barra.</li>
-            <li>Cómete la <strong>carne</strong> 🍖🍗🥩 y las <strong>bebidas</strong> 🍺🍷🥃☕.</li>
-            <li>¡Esquiva las <strong>verduras</strong> 🥦🥬🥕!</li>
-            <li>Muévete pulsando <strong>a la izquierda o a la derecha</strong>.</li>
-            <li>Llega a <strong>1000 puntos</strong> antes de que se acabe el tiempo.</li>
+            <li>Pilla <strong>carne</strong> 🍖 y <strong>bebidas</strong> 🍺🍷🥃☕</li>
+            <li>Esquiva <strong>verduras</strong> 🥦🥬🥕</li>
+            <li>Pulsa <strong>izq/der</strong> para moverte</li>
+            <li>Meta: <strong>1000 puntos</strong></li>
           </ul>
         </div>
         <button class="btn btn--primary" data-action="go-level2">¡A COMER!</button>
@@ -139,7 +136,18 @@
     <!-- NIVEL 2: ALMUERZO EN EL CASABLANCA -->
     <section class="screen screen--game screen--game-portrait" data-screen="level2">
       <div class="game-stage game-stage--portrait" id="gameStage2">
-        <canvas id="gameCanvas2"></canvas>
+        <!-- Mundo del nivel 2 (DOM, animado con transform GPU) -->
+        <div class="l2-world" id="l2World">
+          <div class="l2-sign">CASABLANCA</div>
+          <div class="l2-bar"></div>
+          <div class="l2-waiter" id="l2Waiter" aria-hidden="true">👨🏿‍🍳</div>
+          <div class="l2-items" id="l2Items"></div>
+          <div class="l2-popups" id="l2Popups"></div>
+          <div class="l2-player" id="l2Player">
+            <img src="assets/blas-face.png" alt="" class="l2-player__face" />
+            <div class="l2-player__body"></div>
+          </div>
+        </div>
 
         <!-- HUD -->
         <div class="hud hud--portrait">
@@ -151,13 +159,6 @@
         <!-- Zonas táctiles izq/der invisibles -->
         <button class="touchpad touchpad--left" id="touchLeft" aria-label="Mover izquierda">◀</button>
         <button class="touchpad touchpad--right" id="touchRight" aria-label="Mover derecha">▶</button>
-
-        <!-- Overlay si el móvil está en horizontal -->
-        <div class="rotate-overlay rotate-overlay--portrait" id="rotateOverlay2">
-          <div>
-            <p>Pon el móvil en vertical para comer</p>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -194,9 +195,9 @@
   <!-- Botón global de silenciar audio -->
   <button class="mute-btn" id="muteBtn" type="button" data-mute aria-label="Silenciar" aria-pressed="false">🔊</button>
 
-  <script src="js/sfx.js"></script>
-  <script src="js/level1.js"></script>
-  <script src="js/level2.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/sfx.js?v=20260513-3"></script>
+  <script src="js/level1.js?v=20260513-3"></script>
+  <script src="js/level2.js?v=20260513-3"></script>
+  <script src="js/main.js?v=20260513-3"></script>
 </body>
 </html>

@@ -1,136 +1,86 @@
 /* ============================================================
    level2.js - Reto 2: almuerzo en el bar Casablanca
-   Pantalla vertical. Un camarero colombiano lanza desde arriba
-   comida y bebida. Blas, abajo, debe atrapar carne y bebidas
-   (positivo) y esquivar verduras (negativo). Llegar a 1000 puntos.
+   Implementado sobre DOM con transform/translate3d para que el
+   render lo haga el compositor GPU (mucho mejor en móvil que
+   redibujar un canvas con emojis cada frame).
    ============================================================ */
 (function () {
   'use strict';
 
-  // -------------------- Configuración --------------------
-  const VW = 360;             // ancho lógico (vertical)
-  const VH = 640;             // alto lógico
-  const RENDER_SCALE = 2;     // suficiente para nitidez sin ahogar al móvil
-  const GRAVITY = 600;        // px/s²
-  const PLAYER_SPEED = 260;   // px/s
-  const TIME_LIMIT = 60;      // segundos
+  const TIME_LIMIT = 60;
   const SCORE_GOAL = 1000;
+  const GRAVITY = 700;        // px/s²
+  const PLAYER_SPEED = 320;   // px/s
+  const ITEM_SIZE = 44;
+  const PLAYER_W = 86;
 
-  // Catálogo de items lanzables
-  // type: 'meat' (carne, suma) | 'drink' (bebida, suma) | 'veg' (verdura, resta)
-  const ITEMS = [
-    // CARNE +
-    { emoji: '🍖', points: 100, type: 'meat' },
-    { emoji: '🍗', points: 75,  type: 'meat' },
-    { emoji: '🥩', points: 120, type: 'meat' },
-    { emoji: '🍔', points: 110, type: 'meat' },
-    { emoji: '🌭', points: 80,  type: 'meat' },
-    { emoji: '🥓', points: 90,  type: 'meat' },
-    { emoji: '🍤', points: 90,  type: 'meat' },
-    // BEBIDA +
-    { emoji: '🍺', points: 75,  type: 'drink' },
-    { emoji: '🍷', points: 75,  type: 'drink' },
-    { emoji: '🥃', points: 100, type: 'drink' },
-    { emoji: '☕', points: 50,  type: 'drink' },
-    // VERDURA -
-    { emoji: '🥬', points: -75, type: 'veg' },
-    { emoji: '🥦', points: -100, type: 'veg' },
-    { emoji: '🥕', points: -50, type: 'veg' },
-    { emoji: '🥒', points: -75, type: 'veg' },
-    { emoji: '🌶️', points: -120, type: 'veg' },
+  // Catálogo
+  const POOL_MEAT  = [
+    { emoji: '🍖', pts: 100 }, { emoji: '🍗', pts: 75 },
+    { emoji: '🥩', pts: 120 }, { emoji: '🍔', pts: 110 },
+    { emoji: '🌭', pts: 80  }, { emoji: '🥓', pts: 90 },
+    { emoji: '🍤', pts: 90 },
+  ];
+  const POOL_DRINK = [
+    { emoji: '🍺', pts: 75  }, { emoji: '🍷', pts: 75  },
+    { emoji: '🥃', pts: 100 }, { emoji: '☕', pts: 50  },
+  ];
+  const POOL_VEG = [
+    { emoji: '🥬', pts: -75 }, { emoji: '🥦', pts: -100 },
+    { emoji: '🥕', pts: -50 }, { emoji: '🥒', pts:  -75 },
+    { emoji: '🌶️', pts: -120 },
   ];
 
-  // Pools por tipo (cacheados) para no filtrar en cada spawn
-  const POOL_MEAT  = ITEMS.filter((i) => i.type === 'meat');
-  const POOL_DRINK = ITEMS.filter((i) => i.type === 'drink');
-  const POOL_VEG   = ITEMS.filter((i) => i.type === 'veg');
-
-  // Fuente para los emojis (la fija una sola vez por frame)
-  const EMOJI_FONT = '34px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-
-  // -------------------- Estado --------------------
-  let canvas, ctx;
+  // Estado
+  let stage, world, waiter, itemsEl, playerEl, popupsEl;
+  let inited = false;
+  let running = false;
   let raf = null;
   let lastTime = 0;
-  let running = false;
-  let inited = false;
-
   let score = 0;
   let timeLeft = TIME_LIMIT;
-  let phase = 'play';   // 'play' | 'win' | 'over'
+  let phase = 'play';
+  let stageW = 360, stageH = 640;
+  let waiterX = 180, waiterY = 100;
+  const player = { x: 0, w: PLAYER_W, h: 110 };
+  let touchLeftDown = false, touchRightDown = false;
+  const items = [];   // { el, x, y, vx, vy, type, pts, dead }
+  let spawnTimer = 0;
 
-  const player = {
-    x: VW / 2 - 30,
-    y: VH - 110,
-    w: 60,
-    h: 90,
-    vx: 0,
-    dir: 0,            // -1, 0, 1
-  };
-
-  const waiter = {
-    x: VW / 2,
-    y: 90,
-    armSwing: 0,       // 0..1 anim al lanzar
-  };
-
-  let items = [];        // { emoji, points, type, x, y, vx, vy, rot, rotV, alive, w, h }
-  let popups = [];       // { x, y, text, color, t }
-  let spawnTimer = 1.2;  // se decrementa hasta lanzar
-  let nextSpawn = 1.2;
-  let touchLeftDown = false;
-  let touchRightDown = false;
-
-  let faceSprite = null; // sprite cabeza Blas
-
-  // -------------------- Helpers --------------------
   function rand(min, max) { return min + Math.random() * (max - min); }
-  function randInt(min, max) { return Math.floor(rand(min, max + 1)); }
+  function pickFrom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-  function loadImage(src) {
-    return new Promise((res, rej) => {
-      const img = new Image();
-      img.onload = () => res(img);
-      img.onerror = rej;
-      img.src = src;
-    });
+  // -------------------- Setup --------------------
+  function init() {
+    if (inited) return;
+    inited = true;
+    stage    = document.getElementById('gameStage2');
+    world    = document.getElementById('l2World');
+    waiter   = document.getElementById('l2Waiter');
+    itemsEl  = document.getElementById('l2Items');
+    playerEl = document.getElementById('l2Player');
+    popupsEl = document.getElementById('l2Popups');
+    bindControls();
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', resize);
   }
 
-  function buildFaceSprite(img) {
-    // Cabeza de Blas pre-renderizada (igual que en level1)
-    const TARGET_W = 64 * 4;
-    const TARGET_H = Math.round(TARGET_W * img.height / img.width);
-    const c = document.createElement('canvas');
-    c.width = TARGET_W; c.height = TARGET_H;
-    const cx = c.getContext('2d');
-    cx.imageSmoothingEnabled = true;
-    cx.imageSmoothingQuality = 'high';
-    cx.drawImage(img, 0, 0, img.width, img.height, 0, 0, TARGET_W, TARGET_H);
-    c._ratio = img.height / img.width;
-    return c;
-  }
-
-  // -------------------- Controles --------------------
   function bindControls() {
     const tL = document.getElementById('touchLeft');
     const tR = document.getElementById('touchRight');
-
-    const setPad = (which, val) => (e) => {
+    const press = (which, val) => (e) => {
       e.preventDefault();
       if (which === 'L') touchLeftDown = val;
       else               touchRightDown = val;
     };
-
-    ['touchstart','mousedown','pointerdown'].forEach((ev) => {
-      tL.addEventListener(ev, setPad('L', true), { passive: false });
-      tR.addEventListener(ev, setPad('R', true), { passive: false });
+    ['touchstart', 'pointerdown', 'mousedown'].forEach((ev) => {
+      tL.addEventListener(ev, press('L', true), { passive: false });
+      tR.addEventListener(ev, press('R', true), { passive: false });
     });
-    ['touchend','touchcancel','mouseup','mouseleave','pointerup','pointercancel'].forEach((ev) => {
-      tL.addEventListener(ev, setPad('L', false), { passive: false });
-      tR.addEventListener(ev, setPad('R', false), { passive: false });
+    ['touchend', 'touchcancel', 'pointerup', 'pointercancel', 'mouseup', 'mouseleave'].forEach((ev) => {
+      tL.addEventListener(ev, press('L', false), { passive: false });
+      tR.addEventListener(ev, press('R', false), { passive: false });
     });
-
-    // Teclado (para desktop)
     window.addEventListener('keydown', (e) => {
       if (!running) return;
       if (e.key === 'ArrowLeft' || e.key === 'a')  touchLeftDown = true;
@@ -142,162 +92,181 @@
     });
   }
 
+  function resize() {
+    if (!stage) return;
+    stageW = stage.clientWidth  || 360;
+    stageH = stage.clientHeight || 640;
+    // Recalcula posición del camarero en píxeles físicos
+    waiterX = stageW / 2;
+    waiterY = stageH * 0.12;
+    // Reubica al jugador si está fuera de pantalla por un resize
+    if (player.x + player.w > stageW) player.x = stageW - player.w;
+    if (player.x < 0) player.x = 0;
+    applyPlayerTransform();
+  }
+
+  function applyPlayerTransform() {
+    if (playerEl) playerEl.style.transform = `translate3d(${player.x}px, 0, 0)`;
+  }
+
   // -------------------- Lógica --------------------
   function reset() {
     score = 0;
     timeLeft = TIME_LIMIT;
     phase = 'play';
-    player.x = VW / 2 - player.w / 2;
-    player.vx = 0;
-    player.dir = 0;
-    items = [];
-    popups = [];
-    spawnTimer = 0.8;
-    nextSpawn = 1.0;
-    waiter.armSwing = 0;
     touchLeftDown = false;
     touchRightDown = false;
+    spawnTimer = 0.5;
+    items.length = 0;
+    // Limpiar DOM
+    if (itemsEl) itemsEl.innerHTML = '';
+    if (popupsEl) popupsEl.innerHTML = '';
+    resize();
+    player.x = (stageW - player.w) / 2;
+    applyPlayerTransform();
     updateHUD();
   }
 
   function spawnItem() {
-    // Probabilidades: 35% carne, 25% bebida, 40% verdura
     const r = Math.random();
-    let pool;
-    if (r < 0.35)      pool = POOL_MEAT;
-    else if (r < 0.60) pool = POOL_DRINK;
-    else               pool = POOL_VEG;
-    const proto = pool[randInt(0, pool.length - 1)];
+    let pool, type;
+    if (r < 0.30)      { pool = POOL_MEAT;  type = 'meat'; }
+    else if (r < 0.55) { pool = POOL_DRINK; type = 'drink'; }
+    else               { pool = POOL_VEG;   type = 'veg'; }
+    const proto = pickFrom(pool);
 
-    const vx = rand(-110, 110);
-    const vy = rand(20, 80);
+    const el = document.createElement('div');
+    el.className = 'l2-item';
+    el.textContent = proto.emoji;
+    itemsEl.appendChild(el);
 
-    items.push({
-      emoji: proto.emoji,
-      points: proto.points,
-      type: proto.type,
-      x: waiter.x + rand(-10, 10),
-      y: waiter.y + 30,
-      vx, vy,
-      w: 44, h: 44,
-      alive: true,
-    });
-    waiter.armSwing = 1;
+    const it = {
+      el,
+      x: waiterX - ITEM_SIZE / 2 + rand(-12, 12),
+      y: waiterY + 24,
+      vx: rand(-140, 140),
+      vy: rand(40, 110),
+      type,
+      pts: proto.pts,
+      dead: false,
+    };
+    el.style.transform = `translate3d(${it.x}px, ${it.y}px, 0)`;
+    items.push(it);
+
+    // Animación del camarero (lanzamiento)
+    waiter.classList.add('is-throw');
+    clearTimeout(waiter._tt);
+    waiter._tt = setTimeout(() => waiter.classList.remove('is-throw'), 130);
+
     window.SFX && SFX.play('throw');
+  }
+
+  function popup(text, x, y, bad) {
+    const el = document.createElement('div');
+    el.className = 'l2-popup' + (bad ? ' l2-popup--bad' : '');
+    el.textContent = text;
+    el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    popupsEl.appendChild(el);
+    setTimeout(() => el.remove(), 900);
   }
 
   function update(dt) {
     if (phase !== 'play') return;
 
-    // En modo debug el tiempo se congela (vidas/tiempo infinitos)
+    // Tiempo (congelado en debug)
     if (!window.debugMode) {
       timeLeft -= dt;
       if (timeLeft <= 0) {
         timeLeft = 0;
-        if (score >= SCORE_GOAL) {
-          winLevel();
-        } else {
-          loseLevel();
-        }
+        if (score >= SCORE_GOAL) winLevel();
+        else                     loseLevel();
         return;
       }
     }
 
-    // Spawning. La cadencia se acelera con el tiempo.
+    // Movimiento jugador
+    const dir = (touchRightDown ? 1 : 0) - (touchLeftDown ? 1 : 0);
+    if (dir !== 0) {
+      player.x += dir * PLAYER_SPEED * dt;
+      if (player.x < 4) player.x = 4;
+      if (player.x + player.w > stageW - 4) player.x = stageW - 4 - player.w;
+      applyPlayerTransform();
+    }
+
+    // Spawning
     spawnTimer -= dt;
     if (spawnTimer <= 0) {
       spawnItem();
       const elapsed = TIME_LIMIT - timeLeft;
-      // Cadencia: empieza ~0.55s, baja hasta ~0.22s al final
-      const next = Math.max(0.22, 0.55 - elapsed * 0.012);
+      const next = Math.max(0.20, 0.55 - elapsed * 0.012);
       spawnTimer = next + rand(-0.05, 0.08);
     }
 
-    // Animación del brazo del camarero
-    waiter.armSwing = Math.max(0, waiter.armSwing - dt * 3);
+    // Físicas items
+    const groundY = stageH - 30;
+    const mouthX = player.x + 12;
+    const mouthY = stageH * 0.78; // aprox. parte alta del cuerpo del jugador
+    const mouthW = player.w - 24;
+    const mouthH = 60;
 
-    // Movimiento del jugador
-    let targetDir = 0;
-    if (touchLeftDown && !touchRightDown) targetDir = -1;
-    else if (touchRightDown && !touchLeftDown) targetDir = 1;
-    player.dir = targetDir;
-    player.x += targetDir * PLAYER_SPEED * dt;
-    if (player.x < 4) player.x = 4;
-    if (player.x + player.w > VW - 4) player.x = VW - 4 - player.w;
-
-    // Físicas y limpieza de items
-    items.forEach((it) => {
-      if (!it.alive) return;
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i];
+      if (it.dead) {
+        it.el.remove();
+        items.splice(i, 1);
+        continue;
+      }
       it.vy += GRAVITY * dt;
       it.x += it.vx * dt;
       it.y += it.vy * dt;
-      // Rebote suave en paredes laterales
-      if (it.x < 4 && it.vx < 0) { it.x = 4; it.vx = -it.vx * 0.6; }
-      if (it.x + it.w > VW - 4 && it.vx > 0) { it.x = VW - 4 - it.w; it.vx = -it.vx * 0.6; }
-    });
+      // Rebote suave en paredes
+      if (it.x < 0 && it.vx < 0) { it.x = 0; it.vx = -it.vx * 0.6; }
+      if (it.x + ITEM_SIZE > stageW && it.vx > 0) {
+        it.x = stageW - ITEM_SIZE; it.vx = -it.vx * 0.6;
+      }
+      // Aplica posición (la única vez por frame y por item)
+      it.el.style.transform = `translate3d(${it.x}px, ${it.y}px, 0)`;
 
-    // Colisiones contra Blas (rectángulo "boca")
-    const mouth = {
-      x: player.x + 8,
-      y: player.y + 14,
-      w: player.w - 16,
-      h: player.h - 24,
-    };
-    items.forEach((it) => {
-      if (!it.alive) return;
-      const ix = it.x, iy = it.y, iw = it.w, ih = it.h;
-      if (ix < mouth.x + mouth.w && ix + iw > mouth.x &&
-          iy < mouth.y + mouth.h && iy + ih > mouth.y) {
-        // ¿Lo come?
+      // Colisión con la "boca" del jugador
+      if (
+        it.x + ITEM_SIZE > mouthX && it.x < mouthX + mouthW &&
+        it.y + ITEM_SIZE > mouthY && it.y < mouthY + mouthH
+      ) {
         if (it.type === 'veg') {
-          // Le entra una verdura sin querer: resta
-          score += it.points; // negativo
-          popups.push({
-            x: it.x + iw / 2, y: it.y, text: '¡PUAJ! ' + it.points,
-            color: '#ff6b6b', t: 1.0,
-          });
+          score += it.pts; // negativo
+          popup('¡PUAJ! ' + it.pts, it.x, it.y, true);
           window.SFX && SFX.play('eatBad');
         } else if (it.type === 'drink') {
-          score += it.points;
-          popups.push({
-            x: it.x + iw / 2, y: it.y, text: '+' + it.points,
-            color: '#7eff7e', t: 1.0,
-          });
+          score += it.pts;
+          popup('+' + it.pts, it.x, it.y, false);
           window.SFX && SFX.play('eatDrink');
         } else {
-          score += it.points;
-          popups.push({
-            x: it.x + iw / 2, y: it.y, text: '+' + it.points,
-            color: '#7eff7e', t: 1.0,
-          });
+          score += it.pts;
+          popup('+' + it.pts, it.x, it.y, false);
           window.SFX && SFX.play('eatGood');
         }
-        it.alive = false;
+        it.dead = true;
+        it.el.remove();
+        items.splice(i, 1);
         updateHUD();
-        if (score >= SCORE_GOAL) winLevel();
+        if (score >= SCORE_GOAL) { winLevel(); return; }
+        continue;
       }
-    });
 
-    // Items que tocan el suelo: se rompen sin más
-    items.forEach((it) => {
-      if (!it.alive) return;
-      if (it.y + it.h >= VH - 4) {
-        it.alive = false;
-        // Si era bueno y se ha perdido, una pequeña penalización suave
-        if (it.type !== 'veg') {
-          popups.push({
-            x: it.x + it.w / 2, y: VH - 30,
-            text: 'perdido',
-            color: '#cccccc', t: 0.8,
-          });
-        }
+      // Cae al suelo: se descarta
+      if (it.y > groundY) {
+        it.dead = true;
+        it.el.remove();
+        items.splice(i, 1);
       }
-    });
+    }
+  }
 
-    items = items.filter((it) => it.alive);
-
-    popups.forEach((p) => { p.t -= dt; });
-    popups = popups.filter((p) => p.t > 0);
+  function updateHUD() {
+    const s = document.getElementById('hud2Score');
+    const t = document.getElementById('hud2Time');
+    if (s) s.textContent = score;
+    if (t) t.textContent = Math.max(0, Math.ceil(timeLeft));
   }
 
   function winLevel() {
@@ -308,7 +277,6 @@
       window.Game && window.Game.onLevel2Complete && window.Game.onLevel2Complete();
     }, 400);
   }
-
   function loseLevel() {
     if (phase === 'over') return;
     phase = 'over';
@@ -318,273 +286,6 @@
     }, 400);
   }
 
-  function updateHUD() {
-    const s = document.getElementById('hud2Score');
-    const t = document.getElementById('hud2Time');
-    if (s) s.textContent = score;
-    if (t) t.textContent = Math.max(0, Math.ceil(timeLeft));
-  }
-
-  // -------------------- Render --------------------
-  function draw() {
-    const sf = ctx._scaleFactor || RENDER_SCALE;
-    ctx.setTransform(sf, 0, 0, sf, 0, 0);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    drawBackground();
-    drawWaiter();
-    drawItems();
-    drawPlayer();
-    drawPopups();
-    drawProgress();
-  }
-
-  function drawBackground() {
-    // Pared del bar: tonos claros y cálidos (crema → ocre suave)
-    const grad = ctx.createLinearGradient(0, 0, 0, VH);
-    grad.addColorStop(0, '#fff4dc');
-    grad.addColorStop(0.55, '#fbe4b6');
-    grad.addColorStop(1, '#e9c98a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, VW, VH);
-
-    // Listones verticales muy suaves para dar textura
-    ctx.fillStyle = 'rgba(160, 110, 60, 0.10)';
-    for (let x = 18; x < VW; x += 38) {
-      ctx.fillRect(x, 0, 1, 130);
-    }
-
-    // Repisa de la barra (madera clara)
-    ctx.fillStyle = '#c79a64';
-    ctx.fillRect(0, 130, VW, 14);
-    ctx.fillStyle = '#a8783e';
-    ctx.fillRect(0, 144, VW, 2);
-    ctx.fillStyle = '#e6c39a';
-    ctx.fillRect(0, 128, VW, 3);
-
-    // Cartel "CASABLANCA" en una banderola
-    ctx.fillStyle = '#c4242c';
-    ctx.fillRect(50, 12, VW - 100, 26);
-    ctx.strokeStyle = '#8a1218';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(50, 12, VW - 100, 26);
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 13px "Press Start 2P", monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('CASABLANCA', VW / 2, 25);
-
-    // Suelo claro abajo
-    ctx.fillStyle = '#b88a55';
-    ctx.fillRect(0, VH - 8, VW, 8);
-
-    // Mesa donde se apoya Blas
-    ctx.fillStyle = '#c79a64';
-    ctx.fillRect(player.x - 24, player.y + player.h - 4, player.w + 48, 16);
-    ctx.fillStyle = '#a8783e';
-    ctx.fillRect(player.x - 24, player.y + player.h + 10, player.w + 48, 2);
-  }
-
-  function drawWaiter() {
-    const x = waiter.x;
-    const y = waiter.y;
-
-    // Cuerpo (camisa colombiana con tres colores: amarillo, azul, rojo en bandas)
-    ctx.fillStyle = '#fcd116'; // amarillo
-    ctx.fillRect(x - 22, y - 4, 44, 30);
-    ctx.fillStyle = '#003893'; // azul
-    ctx.fillRect(x - 22, y + 26, 44, 8);
-    ctx.fillStyle = '#ce1126'; // rojo
-    ctx.fillRect(x - 22, y + 34, 44, 8);
-
-    // Hombros / cuello sombreado
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.fillRect(x - 22, y - 4, 44, 3);
-
-    // Cabeza (piel oscura — muy moreno)
-    const SKIN     = '#5a3318';
-    const SKIN_DARK = '#3a1f0c';
-    ctx.fillStyle = SKIN;
-    ctx.beginPath();
-    ctx.ellipse(x, y - 18, 13, 15, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Sombra lateral
-    ctx.fillStyle = SKIN_DARK;
-    ctx.beginPath();
-    ctx.ellipse(x + 5, y - 16, 5, 11, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Pelo oscuro asomando por delante de la frente
-    ctx.fillStyle = '#1a0a05';
-    ctx.fillRect(x - 12, y - 28, 24, 6);
-    ctx.fillRect(x - 14, y - 26, 4, 8);
-    ctx.fillRect(x + 10, y - 26, 4, 8);
-
-    // Sombrero panamá (paja clara con banda negra)
-    ctx.fillStyle = '#f0d9a8';
-    ctx.beginPath();
-    ctx.ellipse(x, y - 30, 14, 8, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#e6c98c';
-    ctx.beginPath();
-    ctx.ellipse(x, y - 25, 22, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(x - 13, y - 29, 26, 3);
-
-    // Ojos (más blancos sobre la piel oscura)
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x - 5, y - 19, 3, 3);
-    ctx.fillRect(x + 2, y - 19, 3, 3);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x - 4, y - 19, 2, 2);
-    ctx.fillRect(x + 3, y - 19, 2, 2);
-    // Cejas
-    ctx.fillRect(x - 6, y - 21, 4, 1);
-    ctx.fillRect(x + 2, y - 21, 4, 1);
-
-    // Sonrisa amplia (sin bigote)
-    ctx.strokeStyle = '#1a0a05';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(x, y - 11, 5, 0.1 * Math.PI, 0.9 * Math.PI);
-    ctx.stroke();
-    // Dientes (línea blanca dentro de la sonrisa)
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x - 4, y - 9);
-    ctx.lineTo(x + 4, y - 9);
-    ctx.stroke();
-
-    // Brazo derecho (lanzando): se mueve según armSwing
-    const swing = waiter.armSwing;
-    const armAngle = -0.4 + swing * 1.6;
-    ctx.save();
-    ctx.translate(x + 18, y + 6);
-    ctx.rotate(armAngle);
-    ctx.fillStyle = '#fcd116';
-    ctx.fillRect(0, -3, 20, 6);
-    ctx.fillStyle = SKIN;
-    ctx.fillRect(20, -3, 5, 6);
-    ctx.restore();
-
-    // Brazo izquierdo apoyado
-    ctx.fillStyle = '#fcd116';
-    ctx.fillRect(x - 32, y + 4, 12, 6);
-    ctx.fillStyle = SKIN;
-    ctx.fillRect(x - 36, y + 4, 5, 6);
-
-    // Bandeja en mano izquierda
-    ctx.fillStyle = '#a0a0a0';
-    ctx.beginPath();
-    ctx.ellipse(x - 40, y + 6, 12, 3, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  function drawItems() {
-    if (!items.length) return;
-    ctx.font = EMOJI_FONT;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i];
-      if (!it.alive) continue;
-      ctx.fillText(it.emoji, it.x + it.w / 2, it.y + it.h / 2);
-    }
-  }
-
-  function drawPlayer() {
-    const px = player.x;
-    const py = player.y;
-    const pw = player.w;
-    const ph = player.h;
-
-    // Sombra
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.beginPath();
-    ctx.ellipse(px + pw / 2, py + ph - 2, pw * 0.45, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Cuerpo: polo amarillo Correos
-    ctx.fillStyle = '#c79c00';
-    ctx.fillRect(px + 6, py + 30, pw - 12, ph - 40);
-    ctx.fillStyle = '#ffd200';
-    ctx.fillRect(px + 8, py + 30, pw - 16, ph - 44);
-    // Cuello sombra
-    ctx.fillStyle = '#9a7050';
-    ctx.fillRect(px + pw / 2 - 4, py + 26, 8, 6);
-    // Brazos
-    const armOffset = player.dir * 3;
-    ctx.fillStyle = '#ffd200';
-    ctx.fillRect(px + 2, py + 36 + armOffset, 8, 22);
-    ctx.fillRect(px + pw - 10, py + 36 - armOffset, 8, 22);
-    // Manos
-    ctx.fillStyle = '#f0c89a';
-    ctx.fillRect(px + 2, py + 56 + armOffset, 8, 6);
-    ctx.fillRect(px + pw - 10, py + 56 - armOffset, 8, 6);
-    // Logo cornete
-    ctx.fillStyle = '#003399';
-    ctx.fillRect(px + pw / 2 - 5, py + 42, 10, 8);
-    ctx.fillStyle = '#ffd200';
-    ctx.fillRect(px + pw / 2 - 3, py + 44, 6, 1);
-
-    // Cabeza (sprite con la cara) — un poco más grande para que se note
-    if (faceSprite) {
-      const fw = 56;
-      const fh = fw * (faceSprite._ratio || 1.0);
-      const fx = px + pw / 2 - fw / 2;
-      const fy = py + 28 - fh;
-      ctx.drawImage(faceSprite, fx, fy, fw, fh);
-    }
-  }
-
-  function drawPopups() {
-    popups.forEach((p) => {
-      ctx.save();
-      const a = Math.min(1, p.t * 2);
-      ctx.globalAlpha = a;
-      ctx.fillStyle = p.color;
-      ctx.font = 'bold 14px "Press Start 2P", monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const offset = (1 - p.t) * 20;
-      ctx.fillText(p.text, p.x, p.y - offset);
-      ctx.restore();
-    });
-  }
-
-  function drawProgress() {
-    // Barra de progreso en el lateral derecho para visualizar puntos/meta
-    const W = 8, H = VH - 200;
-    const x = VW - W - 8;
-    const y = 100;
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(x - 2, y - 2, W + 4, H + 4);
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(x, y, W, H);
-    // Marca meta
-    const frac = Math.max(0, Math.min(1, score / SCORE_GOAL));
-    const fillH = H * frac;
-    const grad = ctx.createLinearGradient(0, y + H, 0, y);
-    grad.addColorStop(0, '#3a8a3a');
-    grad.addColorStop(0.6, '#ffd200');
-    grad.addColorStop(1, '#ff8a3a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(x, y + H - fillH, W, fillH);
-    // Líneas cada 250 pts
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 1;
-    for (let i = 1; i < 4; i++) {
-      const yy = y + H - (i / 4) * H;
-      ctx.beginPath();
-      ctx.moveTo(x, yy);
-      ctx.lineTo(x + W, yy);
-      ctx.stroke();
-    }
-  }
-
   // -------------------- Bucle --------------------
   function tick(ts) {
     if (!running) return;
@@ -592,63 +293,19 @@
     const dt = Math.min(0.05, (ts - lastTime) / 1000);
     lastTime = ts;
     update(dt);
-    draw();
     raf = requestAnimationFrame(tick);
   }
 
-  // -------------------- Canvas sizing --------------------
-  function resizeCanvas() {
-    if (!canvas) return;
-    const stage = document.getElementById('gameStage2');
-    const w = stage.clientWidth;
-    const h = stage.clientHeight;
-    // dpr limitado a 1.5 para móviles. Buscamos un canvas no más ancho
-    // que ~2× el tamaño físico mostrado, suficiente para nitidez.
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    canvas.width = VW * RENDER_SCALE * dpr;
-    canvas.height = VH * RENDER_SCALE * dpr;
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    ctx._scaleFactor = RENDER_SCALE * dpr;
-  }
-
-  function checkOrientation() {
-    const overlay = document.getElementById('rotateOverlay2');
-    if (!overlay) return;
-    const isPortrait = window.innerHeight >= window.innerWidth;
-    const isSmallScreen = window.innerWidth < 700;
-    // En móviles pequeños en horizontal, pedir vertical
-    overlay.classList.toggle('is-active', !isPortrait && isSmallScreen);
-  }
-
   // -------------------- API pública --------------------
-  async function init() {
-    if (inited) return;
-    inited = true;
-    canvas = document.getElementById('gameCanvas2');
-    ctx = canvas.getContext('2d');
-    bindControls();
-    window.addEventListener('resize', () => { resizeCanvas(); checkOrientation(); });
-    window.addEventListener('orientationchange', () => { resizeCanvas(); checkOrientation(); });
-    try {
-      const img = await loadImage('assets/blas-face.png');
-      faceSprite = buildFaceSprite(img);
-    } catch (e) {
-      console.warn('No se pudo cargar blas-face.png en level2:', e);
-    }
-  }
-
-  async function start() {
-    await init();
-    resizeCanvas();
-    checkOrientation();
+  function start() {
+    init();
+    resize();
     reset();
     running = true;
     lastTime = 0;
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(tick);
   }
-
   function stop() {
     running = false;
     cancelAnimationFrame(raf);

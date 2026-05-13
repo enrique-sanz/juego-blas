@@ -12,26 +12,61 @@
 
   let ctx = null;
   let master = null;
-  // Preferencia persistida en localStorage
+  let unlocked = false;
   let enabled = (localStorage.getItem('blas_sfx_enabled') !== '0');
 
+  function createCtx() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    const c = new AC();
+    const g = c.createGain();
+    g.gain.value = 0.6;
+    g.connect(c.destination);
+    ctx = c;
+    master = g;
+    return c;
+  }
+
+  // iOS/Safari y Chrome móvil sólo desbloquean el AudioContext si lo
+  // creamos y reproducimos un sample dentro de un gesto del usuario.
+  function unlock() {
+    if (unlocked) return;
+    if (!ctx) createCtx();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    // Silent buffer corto para "abrir" la pista de audio (truco iOS)
+    try {
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch (e) {}
+    unlocked = true;
+  }
+
+  // Desbloquear en el primer gesto del usuario (cualquiera)
+  function bindUnlock() {
+    const opts = { capture: true, once: true, passive: true };
+    ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach((ev) => {
+      window.addEventListener(ev, () => { if (enabled) unlock(); }, opts);
+    });
+  }
+  bindUnlock();
+
+  // Resumir al volver a la pestaña/pantalla (algunos móviles suspenden)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && ctx && ctx.state === 'suspended') ctx.resume();
+  });
+
   function ensureCtx() {
+    if (!enabled) return false;
     if (!ctx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return false;
-      ctx = new AC();
-      master = ctx.createGain();
-      master.gain.value = 0.6;
-      master.connect(ctx.destination);
+      if (!createCtx()) return false;
     }
     if (ctx.state === 'suspended') ctx.resume();
     return true;
   }
-
-  // Cualquier toque/click/tecla desbloquea el audio en navegadores móviles
-  ['pointerdown', 'touchstart', 'keydown', 'click'].forEach((ev) => {
-    window.addEventListener(ev, () => { if (enabled) ensureCtx(); }, { passive: true });
-  });
 
   // ---------------------------------------------
   // Primitivas
@@ -200,7 +235,10 @@
     toggle() {
       enabled = !enabled;
       persist();
-      if (enabled) ensureCtx();
+      if (enabled) {
+        unlock();   // se llama dentro del click → gesto válido
+        ensureCtx();
+      }
       // Sincronizar UI si existe el botón
       document.querySelectorAll('[data-mute]').forEach((el) => {
         el.classList.toggle('is-muted', !enabled);
