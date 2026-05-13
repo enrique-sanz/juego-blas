@@ -18,6 +18,10 @@ html, body {
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  /* Declara el esquema de color para que los navegadores móviles
+     (Samsung Internet, Chrome Android) no apliquen su modo oscuro
+     automático sobre los colores del juego. */
+  color-scheme: light dark;
 }
 
 #app {
