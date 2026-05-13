@@ -1,0 +1,359 @@
+/* ============================================================
+   El juego de los 45 de Blas - estilos retro
+   Diseñado para móvil vertical. El nivel 1 usa horizontal.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: #0b1020;
+  color: #fff;
+  font-family: 'Press Start 2P', monospace;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* --------- Pantallas (state machine via .is-active) --------- */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6vh 6vw;
+  text-align: center;
+  background: radial-gradient(ellipse at center top, #1a2347 0%, #0b1020 60%, #05070f 100%);
+}
+.screen.is-active { display: flex; }
+
+/* --------- Bienvenida --------- */
+.stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 20% 10%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 80% 25%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 40% 80%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 70% 60%, #fff 50%, transparent 51%),
+    radial-gradient(2px 2px at 10% 65%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 55% 30%, #fff 50%, transparent 51%);
+  opacity: 0.6;
+  animation: twinkle 4s linear infinite;
+  pointer-events: none;
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.welcome__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4vh;
+  max-width: 520px;
+  width: 100%;
+}
+
+.title {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.4;
+}
+.title__line {
+  font-size: clamp(14px, 4.5vw, 22px);
+  color: #fff;
+  text-shadow: 3px 3px 0 #003399;
+}
+.title__line--big {
+  font-size: clamp(22px, 8vw, 38px);
+  color: #ffd200;
+  text-shadow:
+    3px 3px 0 #003399,
+    -1px -1px 0 #fff;
+  letter-spacing: 1px;
+}
+
+.hero {
+  position: relative;
+  width: clamp(180px, 60vw, 280px);
+  aspect-ratio: 1024 / 1536;
+  border: 4px solid #ffd200;
+  background: #003399;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 4px #0b1020,
+    0 0 20px rgba(255, 210, 0, 0.5);
+  image-rendering: pixelated;
+}
+.hero__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.hero__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 40%, transparent 50%, rgba(255, 210, 0, 0.15) 100%);
+  pointer-events: none;
+  animation: pulse 3s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.footer-note {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-top: 0;
+}
+
+/* --------- Botones --------- */
+.btn {
+  font-family: inherit;
+  font-size: clamp(11px, 3.5vw, 14px);
+  padding: 16px 22px;
+  background: #ffd200;
+  color: #003399;
+  border: 4px solid #003399;
+  border-radius: 4px;
+  box-shadow:
+    0 4px 0 #003399,
+    0 4px 0 4px #0b1020;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+  animation: btnPulse 1.5s ease-in-out infinite;
+}
+.btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 #003399, 0 0 0 4px #0b1020;
+  animation: none;
+}
+@keyframes btnPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.15); }
+}
+
+/* --------- Intro --------- */
+.subtitle {
+  font-size: clamp(18px, 6vw, 28px);
+  color: #ffd200;
+  text-shadow: 3px 3px 0 #003399;
+  margin-bottom: 4vh;
+  letter-spacing: 2px;
+}
+.subtitle--ok { color: #6ee76e; text-shadow: 3px 3px 0 #143a14; }
+.subtitle--ko { color: #ff6b6b; text-shadow: 3px 3px 0 #3a1414; }
+
+.intro__inner,
+.rotate__inner,
+.success__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4vh;
+  max-width: 520px;
+  width: 100%;
+  z-index: 1;
+}
+
+.intro__text {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: clamp(11px, 3.2vw, 14px);
+  line-height: 1.7;
+}
+.intro__text strong { color: #ffd200; }
+.intro__rules {
+  margin-top: 10px;
+  font-size: clamp(9px, 2.8vw, 12px);
+  opacity: 0.85;
+}
+
+/* --------- Rotate warning --------- */
+.rotate__icon {
+  animation: rotateHint 2s ease-in-out infinite;
+}
+@keyframes rotateHint {
+  0%, 100% { transform: rotate(0); }
+  50% { transform: rotate(-90deg); }
+}
+.rotate__text {
+  font-size: clamp(11px, 3.2vw, 14px);
+  line-height: 1.7;
+}
+.rotate__text strong { color: #ffd200; }
+
+/* --------- Éxito / chiste --------- */
+.success__big {
+  font-size: clamp(12px, 3.5vw, 16px);
+  line-height: 1.6;
+}
+.success__small {
+  font-size: clamp(9px, 2.8vw, 12px);
+  opacity: 0.8;
+  line-height: 1.6;
+}
+.joke {
+  background: #003399;
+  border: 4px solid #ffd200;
+  padding: 18px 16px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.joke__q {
+  font-size: clamp(11px, 3.2vw, 14px);
+  line-height: 1.6;
+}
+.joke__a {
+  font-size: clamp(16px, 5vw, 22px);
+  color: #ffd200;
+  text-shadow: 2px 2px 0 #000;
+  animation: jokePop 0.6s ease-in-out infinite alternate;
+}
+@keyframes jokePop {
+  from { transform: scale(1); }
+  to   { transform: scale(1.06); }
+}
+
+/* ============================================================
+   NIVEL 1 - canvas a pantalla completa horizontal
+   ============================================================ */
+.screen--game {
+  padding: 0;
+  background: #5cc8ff; /* cielo de día */
+}
+.game-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+#gameCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* HUD */
+.hud {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  z-index: 5;
+  pointer-events: none;
+}
+.hud__item {
+  background: rgba(0, 0, 0, 0.55);
+  border: 2px solid #ffd200;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 10px;
+  color: #fff;
+  letter-spacing: 1px;
+}
+.hud__item span { color: #ffd200; margin-left: 4px; }
+
+/* Controles táctiles */
+.controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 16px;
+  z-index: 5;
+  pointer-events: none;
+}
+.ctrl {
+  pointer-events: auto;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 4px solid #003399;
+  background: rgba(255, 210, 0, 0.85);
+  color: #003399;
+  font-family: inherit;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: bold;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #003399, 0 4px 0 4px rgba(0,0,0,0.4);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+.ctrl span { font-size: 8px; letter-spacing: 1px; }
+.ctrl:active,
+.ctrl.is-pressed {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 #003399, 0 0 0 4px rgba(0,0,0,0.4);
+}
+
+/* Overlay si el dispositivo está en vertical durante el nivel */
+.rotate-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 16, 32, 0.96);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 20;
+  padding: 24px;
+}
+.rotate-overlay p {
+  margin-top: 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #ffd200;
+}
+.screen--game .rotate-overlay.is-active {
+  display: flex;
+}
+
+/* En pantallas grandes (desktop) mostramos centrado con un ancho cómodo */
+@media (min-width: 900px) and (orientation: landscape) {
+  .screen:not(.screen--game) {
+    padding: 6vh 6vw;
+  }
+}

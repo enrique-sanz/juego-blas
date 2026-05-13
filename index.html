@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>El juego de los 45 de Blas</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- PANTALLA DE BIENVENIDA -->
+    <section class="screen screen--welcome is-active" data-screen="welcome">
+      <div class="stars" aria-hidden="true"></div>
+      <div class="welcome__inner">
+        <h1 class="title">
+          <span class="title__line title__line--1">¡Bienvenido al</span>
+          <span class="title__line title__line--big">JUEGO DE LOS 45</span>
+          <span class="title__line title__line--2">de Blas!</span>
+        </h1>
+        <div class="hero">
+          <img src="assets/blas.png" alt="Blas, cartero de Correos" class="hero__img" />
+          <div class="hero__glow" aria-hidden="true"></div>
+        </div>
+        <button class="btn btn--primary" data-action="go-intro">PULSA PARA COMENZAR</button>
+        <p class="footer-note">Un regalo retro para tu cumpleaños</p>
+      </div>
+    </section>
+
+    <!-- INTRO / EXPLICACIÓN -->
+    <section class="screen screen--intro" data-screen="intro">
+      <div class="intro__inner">
+        <h2 class="subtitle">LA MISIÓN</h2>
+        <div class="intro__text">
+          <p>Hoy es un día especial: cumples <strong>45 años</strong>, pero el correo no descansa.</p>
+          <p>Tienes que pasar la <strong>mañana repartiendo cartas</strong> por el barrio…</p>
+          <p>…y terminar <strong>almorzando en el bar Casablanca</strong>. ¡Te lo has ganado!</p>
+          <p class="intro__rules">
+            Cada pantalla es un reto distinto. Supéralos todos para completar el juego.
+          </p>
+        </div>
+        <button class="btn btn--primary" data-action="go-level1-warning">EMPEZAR EL REPARTO</button>
+      </div>
+    </section>
+
+    <!-- AVISO ROTAR PANTALLA -->
+    <section class="screen screen--rotate" data-screen="rotate-warning">
+      <div class="rotate__inner">
+        <div class="rotate__icon" aria-hidden="true">
+          <svg viewBox="0 0 100 100" width="120" height="120">
+            <rect x="30" y="10" width="40" height="80" rx="6" fill="none" stroke="#ffd200" stroke-width="4"/>
+            <path d="M75 50 q15 0 15 15" fill="none" stroke="#ffd200" stroke-width="4"/>
+            <path d="M85 60 l5 5 5 -5" fill="none" stroke="#ffd200" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h2 class="subtitle">GIRA EL MÓVIL</h2>
+        <p class="rotate__text">
+          Este reto se juega en <strong>horizontal</strong>.<br/>
+          Gira tu dispositivo y pulsa el botón cuando estés listo.
+        </p>
+        <button class="btn btn--primary" data-action="go-level1">¡ESTOY LISTO!</button>
+      </div>
+    </section>
+
+    <!-- NIVEL 1: REPARTO ESTILO MARIO -->
+    <section class="screen screen--game" data-screen="level1">
+      <div class="game-stage" id="gameStage">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- HUD -->
+        <div class="hud">
+          <div class="hud__item hud__score">PUNTOS <span id="hudScore">0</span></div>
+          <div class="hud__item hud__time">TIEMPO <span id="hudTime">60</span></div>
+          <div class="hud__item hud__lives">VIDAS <span id="hudLives">♥♥♥</span></div>
+        </div>
+
+        <!-- Controles táctiles -->
+        <div class="controls">
+          <button class="ctrl ctrl--jump" id="btnJump" aria-label="Saltar">▲<br><span>SALTO</span></button>
+          <button class="ctrl ctrl--shoot" id="btnShoot" aria-label="Disparar">✉<br><span>SOBRE</span></button>
+        </div>
+
+        <!-- Overlay solo si el móvil está en vertical -->
+        <div class="rotate-overlay" id="rotateOverlay">
+          <div>
+            <div class="rotate__icon" aria-hidden="true">
+              <svg viewBox="0 0 100 100" width="80" height="80">
+                <rect x="30" y="10" width="40" height="80" rx="6" fill="none" stroke="#ffd200" stroke-width="4"/>
+                <path d="M75 50 q15 0 15 15" fill="none" stroke="#ffd200" stroke-width="4"/>
+                <path d="M85 60 l5 5 5 -5" fill="none" stroke="#ffd200" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <p>Gira el móvil a horizontal para jugar</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ÉXITO NIVEL 1 -->
+    <section class="screen screen--success" data-screen="level1-success">
+      <div class="success__inner">
+        <h2 class="subtitle subtitle--ok">¡ENHORABUENA!</h2>
+        <p class="success__big">Has llegado a lo más alto del árbol…</p>
+        <div class="joke">
+          <p class="joke__q">¿Qué hace un pájaro de 100 kilos en una rama?</p>
+          <p class="joke__a">¡PÍO PÍO!</p>
+        </div>
+        <p class="success__small">Has superado el primer reto. Te espera el siguiente…</p>
+        <button class="btn btn--primary" data-action="go-next-placeholder">SIGUIENTE RETO</button>
+      </div>
+    </section>
+
+    <!-- GAME OVER -->
+    <section class="screen screen--gameover" data-screen="gameover">
+      <div class="success__inner">
+        <h2 class="subtitle subtitle--ko">GAME OVER</h2>
+        <p>Se te han escapado los buzones… ¡vuelve a intentarlo!</p>
+        <button class="btn btn--primary" data-action="retry-level1">REINTENTAR</button>
+      </div>
+    </section>
+
+    <!-- PLACEHOLDER PROXIMOS RETOS -->
+    <section class="screen screen--soon" data-screen="soon">
+      <div class="success__inner">
+        <h2 class="subtitle">PRÓXIMO RETO</h2>
+        <p>Aquí entrará la siguiente pantalla del juego.</p>
+        <p class="success__small">(En construcción 🛠)</p>
+        <button class="btn btn--primary" data-action="go-welcome">VOLVER AL INICIO</button>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="js/level1.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
